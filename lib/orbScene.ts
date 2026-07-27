@@ -14,7 +14,28 @@ export interface OrbSceneApi {
   zoomOut(): void;
   resetView(): void;
   dispose(): void;
+  setTheme(theme: "ultron" | "jarvis"): void;
+  setEnergySurge(active: boolean): void;
+  setCursor(x: number, y: number, active: boolean): void;
 }
+
+const ULTRON_THEME = {
+  bright: 0xffaa30,
+  mid: 0xdd7700,
+  dim: 0x884400,
+  faint: 0x553300,
+  hot: 0xffcc66,
+  grade: new THREE.Vector3(1.15, 0.85, 0.55),
+};
+
+const JARVIS_THEME = {
+  bright: 0x00f0ff,
+  mid: 0x00a8ff,
+  dim: 0x0066aa,
+  faint: 0x003355,
+  hot: 0x88f5ff,
+  grade: new THREE.Vector3(0.55, 0.95, 1.15),
+};
 
 const HOME_POSITION = new THREE.Vector3(0, 0.5, 5.5);
 const MIN_DISTANCE = 0.6;
@@ -23,6 +44,35 @@ const MAX_DISTANCE = 40;
 export function createOrbScene(container: HTMLElement): OrbSceneApi {
   const width = container.clientWidth;
   const height = container.clientHeight;
+
+  // Active theme states for lerping
+  const activeColorVals = {
+    bright: new THREE.Color(ULTRON_THEME.bright),
+    mid: new THREE.Color(ULTRON_THEME.mid),
+    dim: new THREE.Color(ULTRON_THEME.dim),
+    faint: new THREE.Color(ULTRON_THEME.faint),
+    hot: new THREE.Color(ULTRON_THEME.hot),
+    grade: ULTRON_THEME.grade.clone(),
+  };
+
+  const targetTheme = {
+    bright: new THREE.Color(ULTRON_THEME.bright),
+    mid: new THREE.Color(ULTRON_THEME.mid),
+    dim: new THREE.Color(ULTRON_THEME.dim),
+    faint: new THREE.Color(ULTRON_THEME.faint),
+    hot: new THREE.Color(ULTRON_THEME.hot),
+    grade: ULTRON_THEME.grade.clone(),
+  };
+
+  const registeredMaterials: THREE.Material[] = [];
+  function registerMat<T extends THREE.Material>(mat: T): T {
+    registeredMaterials.push(mat);
+    return mat;
+  }
+
+  // Energy Surge state
+  let energySurgeActive = false;
+  let energySurgeT = 0;
 
   // ——— SCENE ———
   const scene = new THREE.Scene();
@@ -54,6 +104,7 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
       tDiffuse: { value: null },
       uTime: { value: 0 },
       uIntensity: { value: 0.003 },
+      uColorGrade: { value: new THREE.Vector3().copy(ULTRON_THEME.grade) },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -66,6 +117,7 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
       uniform sampler2D tDiffuse;
       uniform float uTime;
       uniform float uIntensity;
+      uniform vec3 uColorGrade;
       varying vec2 vUv;
       void main() {
         vec2 dir = vUv - vec2(0.5);
@@ -77,8 +129,8 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
         vec4 cg = texture2D(tDiffuse, vUv);
         vec4 cb = texture2D(tDiffuse, vUv - dir * offset * 0.5);
         gl_FragColor = vec4(cr.r, cg.g * 1.05, cb.b * 0.6, 1.0) * flicker;
-        // Push towards amber/orange tone
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * vec3(1.15, 0.85, 0.55), 0.3);
+        // Push towards theme tint
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, gl_FragColor.rgb * uColorGrade, 0.3);
       }
     `,
   };
@@ -109,13 +161,23 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
 
   // ——— MATERIAL HELPERS ———
   function lineMat(color: number, opacity = 1) {
-    return new THREE.LineBasicMaterial({
-      color,
+    let colorType: "bright" | "mid" | "dim" | "faint" | "hot" = "mid";
+    if (color === C_BRIGHT) colorType = "bright";
+    else if (color === C_MID) colorType = "mid";
+    else if (color === C_DIM) colorType = "dim";
+    else if (color === C_FAINT) colorType = "faint";
+    else if (color === C_HOT) colorType = "hot";
+
+    const mat = new THREE.LineBasicMaterial({
+      color: activeColorVals[colorType],
       transparent: true,
       opacity,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
+    mat.userData = { colorType };
+    registerMat(mat);
+    return mat;
   }
 
   // ——— UTILITY: Create ring at latitude ———
@@ -388,21 +450,25 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
 
   // Glowing center sphere — subtle, see-through
   const coreSphereMat = new THREE.MeshBasicMaterial({
-    color: C_HOT,
+    color: activeColorVals.hot,
     transparent: true,
     opacity: 0.15,
     blending: THREE.AdditiveBlending,
   });
+  coreSphereMat.userData = { colorType: "hot" };
+  registerMat(coreSphereMat);
   const coreSphere = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), coreSphereMat);
   orbGroup.add(coreSphere);
 
   // Larger faint glow — very subtle
   const glowSphereMat = new THREE.MeshBasicMaterial({
-    color: C_MID,
+    color: activeColorVals.mid,
     transparent: true,
     opacity: 0.04,
     blending: THREE.AdditiveBlending,
   });
+  glowSphereMat.userData = { colorType: "mid" };
+  registerMat(glowSphereMat);
   const glowSphere = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), glowSphereMat);
   orbGroup.add(glowSphere);
 
@@ -434,20 +500,23 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
     const ctx = c.getContext("2d")!;
     ctx.font = "bold 14px Courier New";
     const alpha = 0.35 + Math.random() * 0.55;
-    ctx.fillStyle = `rgba(255, ${(130 + Math.random() * 80) | 0}, ${(20 + Math.random() * 30) | 0}, ${alpha})`;
+    // Draw in white so sprite material color multiplier handles dynamic themes
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(text, 128, 16);
     const tex = new THREE.CanvasTexture(c);
     tex.minFilter = THREE.LinearFilter;
-    const s = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: tex,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      }),
-    );
+    const mat = new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      color: activeColorVals.bright,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    mat.userData = { colorType: "bright" };
+    registerMat(mat);
+    const s = new THREE.Sprite(mat);
     s.scale.set(size * 5, size * 0.7, 1);
     return s;
   }
@@ -529,12 +598,15 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
   const debris: THREE.Mesh[] = [];
   for (let i = 0; i < 250; i++) {
     const geo = debrisGeos[Math.floor(Math.random() * debrisGeos.length)];
+    const colorType = Math.random() > 0.7 ? "bright" : "mid";
     const mat = new THREE.MeshBasicMaterial({
-      color: Math.random() > 0.7 ? C_BRIGHT : C_MID,
+      color: activeColorVals[colorType],
       transparent: true,
       opacity: 0.3 + Math.random() * 0.6,
       blending: THREE.AdditiveBlending,
     });
+    mat.userData = { colorType };
+    registerMat(mat);
     const mesh = new THREE.Mesh(geo, mat);
     const orbitR = 1.2 + Math.random() * 4.0;
     const speed = (0.08 + Math.random() * 0.6) * (Math.random() > 0.5 ? 1 : -1);
@@ -605,8 +677,10 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     sizeAttenuation: true,
-    color: C_BRIGHT,
+    color: activeColorVals.bright,
   });
+  dustMat.userData = { colorType: "bright" };
+  registerMat(dustMat);
   const dustPoints = new THREE.Points(dustGeo, dustMat);
   orbGroup.add(dustPoints);
 
@@ -616,13 +690,15 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
   function makeScanRing(radius: number, thickness = 0.015) {
     const geo = new THREE.RingGeometry(radius - thickness, radius + thickness, 120);
     const mat = new THREE.MeshBasicMaterial({
-      color: C_BRIGHT,
+      color: activeColorVals.bright,
       transparent: true,
       opacity: 0,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
+    mat.userData = { colorType: "bright" };
+    registerMat(mat);
     const mesh = new THREE.Mesh(geo, mat);
     mesh.rotation.x = Math.PI / 2;
     return mesh;
@@ -631,6 +707,60 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
   const scanRing1 = makeScanRing(R1, 0.01);
   const scanRing2 = makeScanRing(R1 * 0.7, 0.008);
   orbGroup.add(scanRing1, scanRing2);
+
+  // Holographic crosshair cursor target on shell
+  const cursorMesh = new THREE.Group();
+  cursorMesh.visible = false;
+  scene.add(cursorMesh);
+
+  const cursorRingGeo = new THREE.RingGeometry(0.06, 0.07, 32);
+  const cursorRingMat = new THREE.MeshBasicMaterial({
+    color: activeColorVals.bright,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+  });
+  cursorRingMat.userData = { colorType: "bright" };
+  registerMat(cursorRingMat);
+  const cursorRing = new THREE.Mesh(cursorRingGeo, cursorRingMat);
+  cursorMesh.add(cursorRing);
+
+  const centerDotGeo = new THREE.CircleGeometry(0.012, 16);
+  const centerDotMat = new THREE.MeshBasicMaterial({
+    color: activeColorVals.hot,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+  });
+  centerDotMat.userData = { colorType: "hot" };
+  registerMat(centerDotMat);
+  const centerDot = new THREE.Mesh(centerDotGeo, centerDotMat);
+  cursorMesh.add(centerDot);
+
+  const crosshairLineX = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-0.11, 0, 0),
+      new THREE.Vector3(0.11, 0, 0),
+    ]),
+    lineMat(C_MID, 0.7)
+  );
+  const crosshairLineY = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -0.11, 0),
+      new THREE.Vector3(0, 0.11, 0),
+    ]),
+    lineMat(C_MID, 0.7)
+  );
+  cursorMesh.add(crosshairLineX, crosshairLineY);
+
+  // Shell target invisible sphere for Raycasting
+  const targetSphere = new THREE.Mesh(
+    new THREE.SphereGeometry(2.0, 16, 16),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  scene.add(targetSphere);
+
+  const raycaster = new THREE.Raycaster();
 
   // ═══════════════════════════════════════════════
   // HEXAGONAL NODES — small tech details
@@ -690,6 +820,41 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
     controls.update();
   }
 
+  function setTheme(theme: "ultron" | "jarvis") {
+    const src = theme === "ultron" ? ULTRON_THEME : JARVIS_THEME;
+    targetTheme.bright.setHex(src.bright);
+    targetTheme.mid.setHex(src.mid);
+    targetTheme.dim.setHex(src.dim);
+    targetTheme.faint.setHex(src.faint);
+    targetTheme.hot.setHex(src.hot);
+    targetTheme.grade.copy(src.grade);
+  }
+
+  function setEnergySurge(active: boolean) {
+    energySurgeActive = active;
+  }
+
+  function setCursor(x: number, y: number, active: boolean) {
+    if (!active) {
+      cursorMesh.visible = false;
+      return;
+    }
+    const ndcX = x * 2 - 1;
+    const ndcY = -(y * 2 - 1);
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+    const intersects = raycaster.intersectObject(targetSphere);
+    if (intersects.length > 0) {
+      const pt = intersects[0].point;
+      cursorMesh.position.copy(pt);
+      const normal = pt.clone().normalize();
+      cursorMesh.position.copy(pt.clone().add(normal.clone().multiplyScalar(0.015)));
+      cursorMesh.lookAt(pt.clone().add(normal));
+      cursorMesh.visible = true;
+    } else {
+      cursorMesh.visible = false;
+    }
+  }
+
   // ═══════════════════════════════════════════════
   // ANIMATION
   // ═══════════════════════════════════════════════
@@ -703,33 +868,51 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
     rafId = requestAnimationFrame(animate);
     const t = clock.getElapsedTime();
 
-    // Outer shell rotation
-    outerShell.rotation.y += 0.0015;
+    // Lerp colors towards targets
+    activeColorVals.bright.lerp(targetTheme.bright, 0.08);
+    activeColorVals.mid.lerp(targetTheme.mid, 0.08);
+    activeColorVals.dim.lerp(targetTheme.dim, 0.08);
+    activeColorVals.faint.lerp(targetTheme.faint, 0.08);
+    activeColorVals.hot.lerp(targetTheme.hot, 0.08);
+    activeColorVals.grade.lerp(targetTheme.grade, 0.08);
+
+    // Apply color grade uniform tint
+    chromaticPass.uniforms.uColorGrade.value.copy(activeColorVals.grade);
+
+    // Dynamic color updates for registered materials
+    for (let i = 0; i < registeredMaterials.length; i++) {
+      const mat = registeredMaterials[i] as any;
+      if (mat.userData && mat.userData.colorType) {
+        mat.color.copy((activeColorVals as any)[mat.userData.colorType]);
+      }
+    }
+
+    // Energy Surge state mapping
+    energySurgeT += ((energySurgeActive ? 1 : 0) - energySurgeT) * 0.1;
+
+    // Apply surge physics to rotation speeds
+    outerShell.rotation.y += 0.0015 + energySurgeT * 0.02;
     outerShell.rotation.x = Math.sin(t * 0.08) * 0.05;
 
-    // Panel group follows shell but with slight offset
-    panelGroup.rotation.y += 0.0018;
+    panelGroup.rotation.y += 0.0018 + energySurgeT * 0.024;
     panelGroup.rotation.x = Math.sin(t * 0.08 + 0.5) * 0.04;
 
-    // Secondary shell counter-rotates slowly
-    shell2.rotation.y -= 0.001;
+    shell2.rotation.y -= 0.001 + energySurgeT * 0.015;
     shell2.rotation.z = Math.sin(t * 0.12) * 0.03;
 
-    // Inner core — opposite, faster
-    innerCore.rotation.y -= 0.005;
+    innerCore.rotation.y -= 0.005 + energySurgeT * 0.04;
     innerCore.rotation.z += 0.002;
     innerCore.rotation.x = Math.cos(t * 0.1) * 0.08;
 
-    // Innermost wireframe
-    icoWire.rotation.x += 0.008;
-    icoWire.rotation.y += 0.012;
+    icoWire.rotation.x += 0.008 + energySurgeT * 0.025;
+    icoWire.rotation.y += 0.012 + energySurgeT * 0.035;
 
-    // Core pulse — dramatic surges but mostly transparent
+    // Core pulse — surge adds constant scale overriding wave cycles
     const wave1 = Math.sin(t * 1.2);
     const wave3 = Math.pow(Math.max(0, Math.sin(t * 0.4)), 5); // rare big surge
     const wave4 = Math.pow(Math.max(0, Math.sin(t * 0.7 + 2)), 8); // mega surge
     const fadeOut = Math.pow(Math.max(0, Math.sin(t * 0.25)), 3); // periodic full transparency
-    const surge = wave3 * 1.5 + wave4 * 2.0;
+    const surge = wave3 * 1.5 + wave4 * 2.0 + energySurgeT * 2.5;
     const coreScale = 1 + surge + Math.sin(t * 5) * 0.05;
     coreSphere.scale.setScalar(coreScale);
     // Opacity: mostly very low (0-0.15), sometimes fully transparent, brief bright on surge
@@ -802,8 +985,11 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
       });
     }
 
-    // Bloom pulse
-    bloom.strength = 1.6 + Math.sin(t * 0.8) * 0.3;
+    // Bloom pulse with energy surge multiplier
+    bloom.strength = (1.6 + Math.sin(t * 0.8) * 0.3) * (1 + energySurgeT * 1.5);
+
+    // Dynamic chromatic aberration intensity
+    chromaticPass.uniforms.uIntensity.value = 0.003 + energySurgeT * 0.012;
 
     // Update chromatic aberration time
     chromaticPass.uniforms.uTime.value = t;
@@ -854,5 +1040,8 @@ export function createOrbScene(container: HTMLElement): OrbSceneApi {
     zoomOut: () => zoomBy(1.55),
     resetView,
     dispose,
+    setTheme,
+    setEnergySurge,
+    setCursor,
   };
 }

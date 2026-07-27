@@ -14,6 +14,28 @@ const WRIST = 0;
 const THUMB_TIP = 4;
 const INDEX_TIP = 8;
 const MIDDLE_MCP = 9;
+const THUMB_IP = 3;
+const INDEX_PIP = 6;
+const MIDDLE_PIP = 10;
+const RING_PIP = 14;
+const PINKY_PIP = 18;
+const PINKY_MCP = 17;
+
+// Skeletal connection joints map
+const CONNECTIONS = [
+  // Thumb
+  [0, 1], [1, 2], [2, 3], [3, 4],
+  // Index
+  [0, 5], [5, 6], [6, 7], [7, 8],
+  // Middle
+  [0, 9], [9, 10], [10, 11], [11, 12],
+  // Ring
+  [0, 13], [13, 14], [14, 15], [15, 16],
+  // Pinky
+  [0, 17], [17, 18], [18, 19], [19, 20],
+  // Palm base connection perimeter
+  [5, 9], [9, 13], [13, 17]
+];
 
 // Pinch hysteresis: thumb–index distance relative to hand size
 const PINCH_ON = 0.32;
@@ -24,6 +46,7 @@ const ROTATE_SPEED = 5.0;
 // Smoothing factor for grab-point tracking (0..1, higher = snappier)
 const SMOOTHING = 0.4;
 
+export type GestureType = "grab" | "open_palm" | "index_point" | "thumbs_up" | "peace" | "unknown";
 export type GestureMode = "idle" | "spin" | "zoom";
 
 export interface TrackerStatus {
@@ -37,6 +60,10 @@ export interface HandTrackerCallbacks {
   /** Called when both hands pinch and spread/close: multiply camera distance by factor. */
   onZoom(factor: number): void;
   onStatus(status: TrackerStatus): void;
+  /** Called when a full-hand gesture is detected with high stability confidence. */
+  onGesture(gesture: GestureType, handLabel: string): void;
+  /** Raycast laser targeting pointer callback. */
+  onPointerMove(x: number, y: number, active: boolean): void;
 }
 
 interface Point {
@@ -47,6 +74,9 @@ interface Point {
 interface HandState {
   pinching: boolean;
   grab: Point; // smoothed pinch midpoint, mirrored
+  currentGesture: GestureType;
+  gestureCounter: number;
+  lastEmittedGesture: GestureType;
 }
 
 export class HandTracker {
@@ -66,6 +96,10 @@ export class HandTracker {
   private prevZoomDist: number | null = null;
   private lastStatus: TrackerStatus = { hands: 0, mode: "idle" };
 
+  // Theme support for the skeletal HUD overlay
+  private activeThemeColor = "#ffaa30";
+  private activeThemeColorLine = "rgba(255, 170, 48, 0.45)";
+
   constructor(
     video: HTMLVideoElement,
     overlay: HTMLCanvasElement,
@@ -74,6 +108,16 @@ export class HandTracker {
     this.video = video;
     this.overlay = overlay;
     this.callbacks = callbacks;
+  }
+
+  setThemeColor(theme: "ultron" | "jarvis"): void {
+    if (theme === "ultron") {
+      this.activeThemeColor = "#ffaa30";
+      this.activeThemeColorLine = "rgba(255, 170, 48, 0.45)";
+    } else {
+      this.activeThemeColor = "#00f0ff";
+      this.activeThemeColorLine = "rgba(0, 240, 255, 0.45)";
+    }
   }
 
   async start(): Promise<void> {
@@ -160,7 +204,13 @@ export class HandTracker {
 
       let state = this.handStates.get(label);
       if (!state) {
-        state = { pinching: false, grab: raw };
+        state = {
+          pinching: false,
+          grab: raw,
+          currentGesture: "unknown",
+          gestureCounter: 0,
+          lastEmittedGesture: "unknown",
+        };
         this.handStates.set(label, state);
       }
 
@@ -174,6 +224,42 @@ export class HandTracker {
       };
 
       if (state.pinching) pinchedGrabs.push(state.grab);
+
+      // Determine advanced skeletal gesture
+      const indexExt = dist2d(lm[INDEX_TIP], lm[WRIST]) > dist2d(lm[INDEX_PIP], lm[WRIST]) * 1.05;
+      const middleExt = dist2d(lm[12], lm[WRIST]) > dist2d(lm[MIDDLE_PIP], lm[WRIST]) * 1.05;
+      const ringExt = dist2d(lm[16], lm[WRIST]) > dist2d(lm[RING_PIP], lm[WRIST]) * 1.05;
+      const pinkyExt = dist2d(lm[20], lm[WRIST]) > dist2d(lm[PINKY_PIP], lm[WRIST]) * 1.05;
+      const thumbExt = dist2d(lm[THUMB_TIP], lm[WRIST + 5]) > handScale * 0.55; // WRIST + 5 is 5 (index mcp)
+
+      let gesture: GestureType = "unknown";
+      if (!indexExt && !middleExt && !ringExt && !pinkyExt) {
+        if (thumbExt) {
+          gesture = "thumbs_up";
+        } else {
+          gesture = "grab";
+        }
+      } else if (indexExt && middleExt && ringExt && pinkyExt && thumbExt) {
+        gesture = "open_palm";
+      } else if (indexExt && !middleExt && !ringExt && !pinkyExt) {
+        gesture = "index_point";
+      } else if (indexExt && middleExt && !ringExt && !pinkyExt) {
+        gesture = "peace";
+      }
+
+      // Debounce gesture states with a counter of 5 frames
+      if (gesture === state.currentGesture) {
+        state.gestureCounter++;
+        if (state.gestureCounter >= 5) {
+          if (state.lastEmittedGesture !== gesture) {
+            state.lastEmittedGesture = gesture;
+            this.callbacks.onGesture(gesture, label);
+          }
+        }
+      } else {
+        state.currentGesture = gesture;
+        state.gestureCounter = 0;
+      }
     });
 
     // Drop state for hands that left the frame
@@ -181,6 +267,7 @@ export class HandTracker {
       if (!seen.has(key)) this.handStates.delete(key);
     }
 
+    // Default mode calculation based on pinch counts
     const mode: GestureMode =
       pinchedGrabs.length >= 2 ? "zoom" : pinchedGrabs.length === 1 ? "spin" : "idle";
 
@@ -214,6 +301,33 @@ export class HandTracker {
       this.prevZoomDist = d;
     }
 
+    // Process pointer laser targeting
+    let anyPointerActive = false;
+    let pointerX = 0;
+    let pointerY = 0;
+
+    for (const [label, state] of this.handStates.entries()) {
+      if (state.lastEmittedGesture === "index_point") {
+        anyPointerActive = true;
+        break;
+      }
+    }
+
+    if (anyPointerActive) {
+      const activeHandLabel = Array.from(this.handStates.keys()).find(
+        (k) => this.handStates.get(k)?.lastEmittedGesture === "index_point"
+      );
+      if (activeHandLabel) {
+        const idx = labels.indexOf(activeHandLabel);
+        if (idx !== -1 && landmarks[idx]) {
+          const tip = landmarks[idx][INDEX_TIP];
+          pointerX = 1 - tip.x;
+          pointerY = tip.y;
+        }
+      }
+    }
+
+    this.callbacks.onPointerMove(pointerX, pointerY, anyPointerActive);
     this.emitStatus({ hands: landmarks.length, mode });
   }
 
@@ -234,32 +348,26 @@ export class HandTracker {
     ctx.clearRect(0, 0, width, height);
 
     for (const lm of landmarks) {
-      const thumb = lm[THUMB_TIP];
-      const index = lm[INDEX_TIP];
-      // Overlay canvas sits on the mirrored video preview, so mirror x here too
-      const tx = (1 - thumb.x) * width;
-      const ty = thumb.y * height;
-      const ix = (1 - index.x) * width;
-      const iy = index.y * height;
+      // Draw skeletal connection segments
+      ctx.strokeStyle = this.activeThemeColorLine;
+      ctx.lineWidth = 2;
+      
+      CONNECTIONS.forEach(([startIdx, endIdx]) => {
+        const ptStart = lm[startIdx];
+        const ptEnd = lm[endIdx];
+        if (ptStart && ptEnd) {
+          ctx.beginPath();
+          ctx.moveTo((1 - ptStart.x) * width, ptStart.y * height);
+          ctx.lineTo((1 - ptEnd.x) * width, ptEnd.y * height);
+          ctx.stroke();
+        }
+      });
 
-      const handScale = dist2d(lm[WRIST], lm[MIDDLE_MCP]);
-      const pinched =
-        handScale > 1e-6 && dist2d(thumb, index) / handScale < PINCH_ON;
-
-      ctx.strokeStyle = pinched ? "#ffcc66" : "rgba(255,170,48,0.5)";
-      ctx.lineWidth = pinched ? 2 : 1;
-      ctx.beginPath();
-      ctx.moveTo(tx, ty);
-      ctx.lineTo(ix, iy);
-      ctx.stroke();
-
-      ctx.fillStyle = pinched ? "#ffcc66" : "rgba(255,170,48,0.7)";
-      for (const [x, y] of [
-        [tx, ty],
-        [ix, iy],
-      ]) {
+      // Draw glowing joint nodes
+      ctx.fillStyle = this.activeThemeColor;
+      for (const pt of lm) {
         ctx.beginPath();
-        ctx.arc(x, y, pinched ? 5 : 3, 0, Math.PI * 2);
+        ctx.arc((1 - pt.x) * width, pt.y * height, 3.5, 0, Math.PI * 2);
         ctx.fill();
       }
     }
