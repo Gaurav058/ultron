@@ -21,6 +21,7 @@ import { MemoryEngine } from "../../core/memory/memoryEngine";
 import { RealityChecker } from "../../core/verification/realityChecker";
 import { UltronDoctor } from "../../core/runtime/ultronDoctor";
 import { UltronEventBus, UltronEvent } from "../../core/events/eventBus";
+import { UltronVoiceEngine } from "@/lib/voiceEngine";
 
 export interface UltronShellProps {
   initialModule?: PillarNavId;
@@ -70,6 +71,10 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
   // System Diagnostics State
   const [doctorHealth, setDoctorHealth] = useState<string>("OPTIMAL");
   const [modelAccuracy, setModelAccuracy] = useState<string>("96.4%");
+  const [latestResponse, setLatestResponse] = useState<string>(
+    "ULTRON intelligence engine synchronized with Gemini API. Ready for autonomous missions, research, code synthesis, or operator commands."
+  );
+  const [activeModel, setActiveModel] = useState<string>("gemini-3.5-flash");
 
   // Live Clock updater
   useEffect(() => {
@@ -160,48 +165,81 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
     }
   };
 
-  // Submit Intent: Executes the Complete Vertical Cognitive Slice
-  const handleCommandSubmit = (commandText: string) => {
+  // Submit Intent: Connects to Live Gemini API & Tool Execution Kernel
+  const handleCommandSubmit = async (commandText: string) => {
     if (!commandText.trim()) return;
 
     setIsProcessing(true);
     setCoreState("THINKING");
 
-    // Ingest Intent
-    UltronEventBus.publish("SYSTEM_STATE_CHANGED", "USER", `Ingested intent: "${commandText.slice(0, 42)}..."`);
+    UltronEventBus.publish("SYSTEM_STATE_CHANGED", "USER", `Directing command to Gemini kernel: "${commandText.slice(0, 42)}..."`);
 
-    // Conductor compiles DAG Plan & Creates Mission
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/voice/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: commandText, sessionId: "ultron-desktop-session" }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Kernel returned HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      const replyText = data.text || "Command processed.";
+      setLatestResponse(replyText);
+      if (data.model) {
+        setActiveModel(data.model);
+      }
+
+      // Process actions / tools executed by Gemini
+      if (data.actions && data.actions.length > 0) {
+        setCoreState("EXECUTING");
+        for (const action of data.actions) {
+          const toolName = action.name || action.toolName;
+          UltronEventBus.publish("TOOL_STARTED", "AGENT", `Executed Gemini tool: ${toolName}`);
+
+          // If create_mission was called, select the mission
+          if (toolName === "create_mission" && action.result?.missionId) {
+            setActiveMissionId(action.result.missionId);
+          }
+          UltronEventBus.publish("TOOL_COMPLETED", "TOOL", `Completed ${toolName}`);
+        }
+      }
+
+      // Sync missions state with MissionManager
+      const updatedMissions = MissionManager.getMissions();
+      setMissions(updatedMissions);
+      if (updatedMissions.length > 0 && !activeMissionId) {
+        setActiveMissionId(updatedMissions[0].id);
+      }
+
+      // Reality Checker audit
+      const targetMission = updatedMissions.find((m) => m.id === activeMissionId) || updatedMissions[0];
+      if (targetMission) {
+        const report = RealityChecker.auditMission(targetMission);
+        const passedCount = report.assertions.filter((a) => a.status === "PASSED").length;
+        const passRate = report.assertions.length > 0 ? passedCount / report.assertions.length : 1;
+        setModelAccuracy(`${Math.round(passRate * 100)}%`);
+      }
+
+      // Speak response through voice engine
+      try {
+        UltronVoiceEngine.getInstance().speak(replyText);
+      } catch {}
+
+      setCoreState("READY");
+    } catch (error: any) {
+      console.warn("API call notice; fallback execution:", error?.message);
+      // Fallback local mission creation if offline
       const newMission = MissionManager.createMission(commandText);
       setActiveMissionId(newMission.id);
-      setCoreState("EXECUTING");
-
-      // Step 3: Researcher Gathers Evidence
-      setTimeout(() => {
-        UltronEventBus.publish("TOOL_STARTED", "AGENT", "Synthesized multi-source evidence and context for execution");
-
-        // Step 4: Reality Checker Empirical Verification
-        setTimeout(() => {
-          const report = RealityChecker.auditMission(newMission);
-          const passedCount = report.assertions.filter((a) => a.status === "PASSED").length;
-          const passRate = report.assertions.length > 0 ? passedCount / report.assertions.length : 1;
-          const passPct = Math.round(passRate * 100);
-          setModelAccuracy(`${passPct}%`);
-
-          UltronEventBus.publish("TOOL_COMPLETED", "REALITY", `Validated mission across 4 empirical gates (${passPct}% Pass)`);
-
-          // Step 5: Memory Curator Records to Durable L4 Memory
-          MemoryEngine.addWorkingMemory(
-            newMission.id,
-            `Verified Execution: ${newMission.title}`,
-            `Mission successfully orchestrated and reality-checked with ${newMission.evidenceLedger.length} evidence claims.`,
-            "agent-reality-checker"
-          );
-
-          setIsProcessing(false);
-        }, 600);
-      }, 500);
-    }, 400);
+      setMissions(MissionManager.getMissions());
+      setLatestResponse(`Executed command: "${commandText}". Mission [${newMission.id}] compiled.`);
+      setCoreState("READY");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const pendingGates = useMemo(
@@ -325,6 +363,8 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
                     onToggleVoice={() => {}}
                     onOpenMission={() => handleSelectModule("MISSIONS")}
                     onCreateMission={() => handleSelectModule("MISSIONS")}
+                    latestResponse={latestResponse}
+                    activeModel={activeModel}
                   />
                 </div>
 

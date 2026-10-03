@@ -22,6 +22,8 @@ export interface CoreModuleProps {
   pendingGates: PolicyGate[];
   onOpenApprovals: () => void;
   doctorHealth: string;
+  latestResponse?: string;
+  activeModel?: string;
 }
 
 export default function CoreModule({
@@ -38,6 +40,8 @@ export default function CoreModule({
   pendingGates,
   onOpenApprovals,
   doctorHealth,
+  latestResponse,
+  activeModel,
 }: CoreModuleProps) {
   return (
     <div
@@ -74,6 +78,8 @@ export default function CoreModule({
             onOpenMission={onOpenMission}
             onCreateMission={onCreateMission}
             isListening={isListening}
+            latestResponse={latestResponse}
+            activeModel={activeModel}
           />
         </div>
 

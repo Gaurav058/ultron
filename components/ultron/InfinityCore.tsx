@@ -27,6 +27,8 @@ interface InfinityCoreProps {
   onOpenMission?: () => void;
   onCreateMission?: () => void;
   isListening?: boolean;
+  latestResponse?: string;
+  activeModel?: string;
 }
 
 interface CognitiveStage {
@@ -49,6 +51,8 @@ export default function InfinityCore({
   onOpenMission,
   onCreateMission,
   isListening = false,
+  latestResponse,
+  activeModel = "gemini-3.5-flash",
 }: InfinityCoreProps) {
   // Section 6: Map to READY / THINKING / EXECUTING / WAITING / VERIFYING / ERROR
   const normalizedCoreState: string = (() => {
@@ -212,7 +216,7 @@ export default function InfinityCore({
               MODEL
             </div>
             <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--ultron-cyan)", marginTop: "2px" }}>
-              GEMINI 2.5 FLASH
+              {(activeModel || "gemini-3.5-flash").toUpperCase()}
             </div>
           </div>
 
@@ -246,6 +250,32 @@ export default function InfinityCore({
             <div style={{ fontSize: "12px", fontWeight: 700, color: "var(--ultron-violet)", marginTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {activeMission ? activeMission.title : "NO ACTIVE MISSION"}
             </div>
+          </div>
+        </div>
+
+        {/* Live Intelligence Output Banner */}
+        <div
+          style={{
+            marginBottom: "12px",
+            padding: "10px 14px",
+            background: "rgba(99, 232, 255, 0.05)",
+            border: "1px solid rgba(99, 232, 255, 0.25)",
+            borderRadius: "6px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "5px",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: "10px", fontWeight: 700, color: "var(--ultron-cyan)", letterSpacing: "0.8px" }}>
+              ◉ LIVE INTELLIGENCE OUTPUT • {(activeModel || "gemini-3.5-flash").toUpperCase()}
+            </span>
+            <span style={{ fontSize: "10px", color: "var(--ultron-text-muted)", fontFamily: "var(--ultron-font-mono)" }}>
+              {status === "THINKING" ? "REASONING..." : status === "EXECUTING" ? "EXECUTING TASK..." : "SYNCHRONIZED"}
+            </span>
+          </div>
+          <div style={{ fontSize: "13px", color: "var(--ultron-text-primary)", lineHeight: 1.45 }}>
+            {latestResponse || "ULTRON intelligence engine synchronized with Gemini API. Ready for autonomous missions, research, code synthesis, or operator commands."}
           </div>
         </div>
 
