@@ -260,7 +260,7 @@ export default function PillarCore({
             />
             <button
               type="submit"
-              className="px-5 py-3.5 bg-[#ffaa30] text-black font-bold text-xs tracking-wider hover:bg-[#ffcc66] transition-all"
+              className="px-5 py-3.5 bg-[#ffd166]/15 border-l border-[#ffd166]/40 text-[#ffd166] font-bold text-xs tracking-wider hover:bg-[#ffd166]/25 transition-all"
             >
               TRANSMIT
             </button>

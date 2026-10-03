@@ -91,7 +91,7 @@ export default function PillarBrain() {
             onClick={() => setSelectedTier(t.id)}
             className={`px-3 py-1.5 rounded text-xs transition-all ${
               selectedTier === t.id
-                ? "bg-[#ffaa30] text-black font-bold shadow-[0_0_12px_rgba(255,170,48,0.4)]"
+                ? "bg-[#ffd166]/20 text-[#ffd166] border border-[#ffd166]/40 font-bold shadow-[0_0_12px_rgba(255,209,102,0.3)]"
                 : "bg-zinc-900/60 text-zinc-400 border border-zinc-800 hover:text-zinc-200"
             }`}
           >

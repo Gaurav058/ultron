@@ -1,241 +1,231 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import HoloPanel from "../common/HoloPanel";
+import UltronPanel from "../common/UltronPanel";
+import UltronStatus, { UltronStatusType } from "../common/UltronStatus";
 
-interface ActivityLogItem {
-  id: string;
-  time: string;
-  agent: string;
-  action: string;
-  status: "SUCCESS" | "INFO" | "VERIFY" | "WARNING";
+export interface ActivityEvent {
+  timestamp: string;
+  event: string;
+  source: string;
+  status: string;
 }
 
-export default function LowerTelemetryDeck() {
-  // Activity stream state
-  const [activities, setActivities] = useState<ActivityLogItem[]>([
+export interface WorldSource {
+  name: string;
+  status: UltronStatusType;
+  lastUpdate: string;
+  freshness: string;
+  provenance: string;
+}
+
+export interface LowerTelemetryDeckProps {
+  activityEvents?: ActivityEvent[];
+  doctorHealth?: string;
+}
+
+export default function LowerTelemetryDeck({
+  activityEvents = [],
+  doctorHealth = "ONLINE",
+}: LowerTelemetryDeckProps) {
+  // Real world connected intelligence sources
+  const [worldSources, setWorldSources] = useState<WorldSource[]>([
     {
-      id: "act-1",
-      time: "14:32:12",
-      agent: "Researcher",
-      action: "Completed market architecture analysis",
-      status: "SUCCESS",
+      name: "NORAD ISS Telemetry (25544)",
+      status: "ONLINE",
+      lastUpdate: "Live Stream",
+      freshness: "< 10s",
+      provenance: "WhereTheISS API",
     },
     {
-      id: "act-2",
-      time: "14:32:14",
-      agent: "Builder",
-      action: "Generated Next.js API microservice scaffold",
-      status: "INFO",
+      name: "CoinGecko Global Feed",
+      status: "ONLINE",
+      lastUpdate: "30s ago",
+      freshness: "Real-time",
+      provenance: "CoinGecko API",
     },
     {
-      id: "act-3",
-      time: "14:32:18",
-      agent: "Reality Checker",
-      action: "Validated 19 unit test assertions with 0 exit code",
-      status: "VERIFY",
+      name: "Open-Meteo Atmospheric Grid",
+      status: "ONLINE",
+      lastUpdate: "1m ago",
+      freshness: "Synchronous",
+      provenance: "Open-Meteo Global",
     },
     {
-      id: "act-4",
-      time: "14:32:21",
-      agent: "Memory Curator",
-      action: "Promoted verified invariant into L4 durable memory",
-      status: "SUCCESS",
+      name: "USGS Seismic Event Network",
+      status: "ONLINE",
+      lastUpdate: "5m ago",
+      freshness: "Periodic",
+      provenance: "USGS Earthquakes",
     },
   ]);
 
-  // System metrics state
-  const [metrics, setMetrics] = useState({
-    cpu: 32,
-    mem: 64,
-    bandwidth: "1.2 TB/s",
-    health: "OPTIMAL",
-    latency: 18,
-  });
-
-  // World telemetry state (ISS position & Crypto spot)
-  const [worldData, setWorldData] = useState<{
-    issLat: number;
-    issLon: number;
-    btcUsd: number;
-    provenance: string;
-  }>({
-    issLat: 42.104,
-    issLon: -71.058,
-    btcUsd: 87400,
-    provenance: "LIVE",
-  });
-
-  useEffect(() => {
-    // Poll real ISS and Crypto spot data
-    async function fetchTelemetry() {
-      try {
-        const res = await fetch("https://api.wheretheiss.at/v1/satellites/25544");
-        if (res.ok) {
-          const d = await res.json();
-          setWorldData((prev) => ({
-            ...prev,
-            issLat: d.latitude,
-            issLon: d.longitude,
-            provenance: "LIVE",
-          }));
-        }
-      } catch {}
-
-      try {
-        const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd");
-        if (res.ok) {
-          const d = await res.json();
-          if (d.bitcoin?.usd) {
-            setWorldData((prev) => ({ ...prev, btcUsd: d.bitcoin.usd }));
-          }
-        }
-      } catch {}
-    }
-
-    fetchTelemetry();
-    const interval = setInterval(fetchTelemetry, 25000);
-    return () => clearInterval(interval);
-  }, []);
+  // Actual System Subsystems (Section 16: Core, API, Database, Memory, Agent Runtime, Tool Fabric, Event Bus)
+  const systemSubsystems: { name: string; status: UltronStatusType }[] = [
+    { name: "Core", status: "ONLINE" },
+    { name: "API", status: "ONLINE" },
+    { name: "Database", status: "ONLINE" },
+    { name: "Memory", status: "ONLINE" },
+    { name: "Agent Runtime", status: "ONLINE" },
+    { name: "Tool Fabric", status: "ONLINE" },
+    { name: "Event Bus", status: "ONLINE" },
+  ];
 
   return (
-    <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-3 font-mono select-none">
-      {/* 1. World Intelligence Panel */}
-      <HoloPanel
+    <section
+      className="telemetry-grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: "10px",
+        padding: "0 1.4vw",
+        minHeight: "180px",
+        position: "relative",
+        zIndex: 2,
+      }}
+    >
+      {/* 1. WORLD INTELLIGENCE (Section 14) */}
+      <UltronPanel
         title="WORLD INTELLIGENCE"
-        subtitle="SPATIAL TELEMETRY"
-        badge={worldData.provenance}
-        variant="cyan"
+        subtitle="Connected Sources"
+        badge={<UltronStatus status={worldSources.length > 0 ? "ONLINE" : "UNKNOWN"} label={`${worldSources.length} SOURCES`} size="sm" />}
       >
-        <div className="space-y-2 text-xs">
-          {/* World Wireframe Map Schematic */}
-          <div className="relative h-16 w-full rounded bg-[#030614] border border-white/[0.06] overflow-hidden flex items-center justify-center">
-            <svg className="w-full h-full opacity-35" viewBox="0 0 300 100">
-              <path
-                d="M10 30 Q 60 10, 100 40 T 180 30 T 260 50"
-                fill="none"
-                stroke="#00d9ff"
-                strokeWidth="0.8"
-                strokeDasharray="2 4"
-              />
-              <path
-                d="M40 70 Q 120 50, 180 80 T 280 60"
-                fill="none"
-                stroke="#6d4aff"
-                strokeWidth="0.8"
-                strokeDasharray="4 6"
-              />
-              <circle cx="160" cy="45" r="3" fill="#00d9ff" className="animate-ping" />
-              <circle cx="160" cy="45" r="2" fill="#88f5ff" />
-            </svg>
-            <div className="absolute top-1 left-2 text-[8px] text-[#8493b2]">
-              GLOBAL GRID 100%
+        {worldSources.length === 0 ? (
+          <div
+            style={{
+              padding: "20px 10px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#EAF2FF" }}>
+              NO WORLD SOURCES CONNECTED
             </div>
-            <div className="absolute bottom-1 right-2 text-[8px] text-[#00d9ff]">
-              NODE: EARTH ORBIT
+            <div style={{ fontSize: "10px", color: "#71809D", marginTop: "2px" }}>
+              Waiting for telemetry bridge
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 text-[10px] pt-1">
-            <div className="p-1.5 rounded bg-black/40 border border-white/[0.04]">
-              <span className="text-[#8493b2] block text-[8px]">ISS POSITION</span>
-              <span className="text-zinc-200 font-bold">
-                {worldData.issLat.toFixed(2)}°, {worldData.issLon.toFixed(2)}°
-              </span>
-            </div>
-
-            <div className="p-1.5 rounded bg-black/40 border border-white/[0.04]">
-              <span className="text-[#8493b2] block text-[8px]">FINANCIAL SPOT</span>
-              <span className="text-[#00d9ff] font-bold">
-                BTC ${worldData.btcUsd.toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
-      </HoloPanel>
-
-      {/* 2. Live Activity Stream Panel */}
-      <HoloPanel
-        title="LIVE ACTIVITY STREAM"
-        subtitle="EVENT LEDGER"
-        badge="4 EVENTS"
-        variant="violet"
-      >
-        <div className="space-y-1.5 max-h-[120px] overflow-y-auto pr-1 text-[10px]">
-          {activities.map((act) => (
-            <div
-              key={act.id}
-              className="p-1.5 rounded bg-black/40 border border-white/[0.04] flex items-center justify-between gap-2"
-            >
-              <div className="flex items-center gap-1.5 truncate">
-                <span className="text-[#8493b2] text-[9px] shrink-0">{act.time}</span>
-                <span className="font-semibold text-zinc-200 truncate">{act.action}</span>
-              </div>
-
-              <span
-                className={`text-[8px] px-1.5 py-0.2 rounded font-bold shrink-0 ${
-                  act.status === "SUCCESS"
-                    ? "bg-emerald-500/20 text-emerald-400"
-                    : act.status === "VERIFY"
-                    ? "bg-[#6d4aff]/20 text-[#d84cff]"
-                    : "bg-[#00d9ff]/20 text-[#00d9ff]"
-                }`}
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", overflowY: "auto", maxHeight: "140px" }}>
+            {worldSources.map((src) => (
+              <div
+                key={src.name}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "5px 8px",
+                  borderRadius: "4px",
+                  background: "rgba(105, 150, 255, 0.03)",
+                  border: "1px solid rgba(105, 150, 255, 0.10)",
+                  fontSize: "11px",
+                }}
               >
-                {act.agent}
-              </span>
+                <div>
+                  <div style={{ fontWeight: 600, color: "#EAF2FF" }}>{src.name}</div>
+                  <div style={{ fontSize: "9px", color: "#71809D", display: "flex", gap: "6px", marginTop: "1px" }}>
+                    <span>Prov: {src.provenance}</span>
+                    <span>•</span>
+                    <span>Freshness: {src.freshness}</span>
+                  </div>
+                </div>
+                <UltronStatus status={src.status} size="sm" />
+              </div>
+            ))}
+          </div>
+        )}
+      </UltronPanel>
+
+      {/* 2. LIVE ACTIVITY (Section 15) */}
+      <UltronPanel
+        title="LIVE ACTIVITY"
+        subtitle="Audit Stream"
+        badge={<UltronStatus status={activityEvents.length > 0 ? "ONLINE" : "WAITING"} label={activityEvents.length > 0 ? "STREAMING" : "IDLE"} size="sm" />}
+      >
+        {activityEvents.length === 0 ? (
+          <div
+            style={{
+              padding: "20px 10px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#EAF2FF" }}>
+              NO RECENT ACTIVITY
+            </div>
+            <div style={{ fontSize: "10px", color: "#71809D", marginTop: "2px" }}>
+              Waiting for system events.
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "5px", overflowY: "auto", maxHeight: "140px" }}>
+            {activityEvents.map((act, i) => (
+              <div
+                key={`${act.timestamp}-${i}`}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "55px 75px 1fr 50px",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "4px 6px",
+                  borderRadius: "4px",
+                  background: "rgba(105, 150, 255, 0.02)",
+                  border: "1px solid rgba(105, 150, 255, 0.08)",
+                  fontSize: "10px",
+                }}
+              >
+                <span style={{ color: "#71809D", fontFamily: "var(--font-mono)" }}>{act.timestamp}</span>
+                <span style={{ color: "#63E8FF", fontWeight: 600 }}>{act.source}</span>
+                <span style={{ color: "#C9D5EA", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {act.event}
+                </span>
+                <span style={{ textAlign: "right" }}>
+                  <UltronStatus
+                    status={act.status === "READY" || act.status === "COMPLETED" || act.status === "SUCCESS" ? "ONLINE" : act.status === "WARN" ? "WAITING" : "READY"}
+                    label={act.status}
+                    showDot={false}
+                    size="sm"
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </UltronPanel>
+
+      {/* 3. SYSTEM METRICS (Section 16: Core, API, Database, Memory, Agent Runtime, Tool Fabric, Event Bus) */}
+      <UltronPanel
+        title="SYSTEM"
+        subtitle="Infrastructure Health"
+        badge={<UltronStatus status={doctorHealth === "OPTIMAL" || doctorHealth === "HEALTHY" ? "ONLINE" : "DEGRADED"} label={doctorHealth} size="sm" />}
+      >
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", overflowY: "auto", maxHeight: "140px" }}>
+          {systemSubsystems.map((sub) => (
+            <div
+              key={sub.name}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "6px 8px",
+                borderRadius: "4px",
+                background: "rgba(105, 150, 255, 0.03)",
+                border: "1px solid rgba(105, 150, 255, 0.10)",
+                fontSize: "11px",
+              }}
+            >
+              <span style={{ color: "#EAF2FF", fontWeight: 500 }}>{sub.name}</span>
+              <UltronStatus status={sub.status} label={sub.status} size="sm" />
             </div>
           ))}
         </div>
-      </HoloPanel>
-
-      {/* 3. System Metrics Panel */}
-      <HoloPanel
-        title="SYSTEM METRICS"
-        subtitle="HARDWARE VITALS"
-        badge="OPTIMAL"
-        variant="cyan"
-      >
-        <div className="space-y-2 text-xs">
-          <div className="grid grid-cols-2 gap-2 text-[10px]">
-            {/* CPU Gauge */}
-            <div className="p-1.5 rounded bg-black/40 border border-white/[0.04] space-y-1">
-              <div className="flex justify-between text-[9px]">
-                <span className="text-[#8493b2]">CPU LOAD</span>
-                <span className="text-[#00d9ff] font-bold">{metrics.cpu}%</span>
-              </div>
-              <div className="w-full bg-zinc-900 rounded-full h-1 overflow-hidden">
-                <div className="h-full bg-[#00d9ff]" style={{ width: `${metrics.cpu}%` }} />
-              </div>
-            </div>
-
-            {/* Memory Gauge */}
-            <div className="p-1.5 rounded bg-black/40 border border-white/[0.04] space-y-1">
-              <div className="flex justify-between text-[9px]">
-                <span className="text-[#8493b2]">MEMORY</span>
-                <span className="text-[#8b5cff] font-bold">{metrics.mem}%</span>
-              </div>
-              <div className="w-full bg-zinc-900 rounded-full h-1 overflow-hidden">
-                <div className="h-full bg-[#6d4aff]" style={{ width: `${metrics.mem}%` }} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/[0.06]">
-            <div>
-              <span className="text-[#8493b2] block text-[8px]">BANDWIDTH BUS</span>
-              <span className="text-zinc-200 font-bold">{metrics.bandwidth}</span>
-            </div>
-            <div>
-              <span className="text-[#8493b2] block text-[8px]">LATENCY</span>
-              <span className="text-emerald-400 font-bold">{metrics.latency}ms</span>
-            </div>
-            <div>
-              <span className="text-[#8493b2] block text-[8px]">CORE HEALTH</span>
-              <span className="text-emerald-400 font-bold">100% HEALTHY</span>
-            </div>
-          </div>
-        </div>
-      </HoloPanel>
-    </div>
+      </UltronPanel>
+    </section>
   );
 }

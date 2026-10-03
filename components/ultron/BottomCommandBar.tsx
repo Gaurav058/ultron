@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
+import UltronButton from "../common/UltronButton";
 
-interface BottomCommandBarProps {
+export interface BottomCommandBarProps {
   onSubmitIntent: (text: string) => void;
   isProcessing?: boolean;
 }
@@ -13,9 +14,12 @@ export default function BottomCommandBar({
 }: BottomCommandBarProps) {
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [waveformBars, setWaveformBars] = useState<number[]>([40, 75, 50, 90, 60, 30, 80, 45]);
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleVoice = () => {
+    if (typeof window === "undefined") return;
+
     if (isListening) {
       setIsListening(false);
       return;
@@ -23,7 +27,7 @@ export default function BottomCommandBar({
 
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRec) {
-      alert("Browser speech recognition unavailable.");
+      alert("Browser speech recognition is not supported in this browser. Please type your command.");
       return;
     }
 
@@ -48,9 +52,25 @@ export default function BottomCommandBar({
         setIsListening(false);
       };
 
+      rec.onerror = () => {
+        setIsListening(false);
+      };
+
       rec.start();
     } catch {
       setIsListening(false);
+    }
+  };
+
+  const handleAttachmentClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAttachmentName(file.name);
+      setInput((prev) => (prev ? `${prev} [Attachment: ${file.name}]` : `Ingest [Attachment: ${file.name}]`));
     }
   };
 
@@ -59,85 +79,141 @@ export default function BottomCommandBar({
     if (!input.trim() || isProcessing) return;
     onSubmitIntent(input.trim());
     setInput("");
+    setAttachmentName(null);
   };
 
   return (
-    <div className="w-full select-none font-mono">
+    <div
+      className="command-bar-wrapper"
+      style={{
+        width: "100%",
+        padding: "6px 1.4vw",
+        position: "relative",
+        zIndex: 10,
+        fontFamily: "var(--ultron-font)",
+      }}
+    >
       <form
         onSubmit={handleSubmit}
-        className="relative bg-[#060a1c]/90 border border-[#00d9ff]/30 hover:border-[#00d9ff]/60 focus-within:border-[#00d9ff] focus-within:shadow-[0_0_30px_rgba(0,217,255,0.25)] rounded-[4px] p-2 lg:p-2.5 backdrop-blur-xl transition-all duration-300 flex items-center justify-between gap-3"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          width: "100%",
+          borderRadius: "8px",
+          position: "relative",
+        }}
       >
-        {/* Left: Indicator & Voice Microphone Waveform */}
-        <div className="flex items-center gap-2.5 shrink-0 pl-1">
-          <button
-            type="button"
-            onClick={toggleVoice}
-            className={`w-8 h-8 rounded flex items-center justify-center transition-all ${
-              isListening
-                ? "bg-red-500/20 border border-red-500 text-red-400 animate-pulse shadow-[0_0_15px_#ef4444]"
-                : "bg-white/[0.04] border border-white/[0.08] text-[#00d9ff] hover:bg-[#00d9ff]/15"
-            }`}
-            title="Toggle Voice Engine"
-          >
-            🎙
-          </button>
+        {/* Hidden file input for attachment button */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          style={{ display: "none" }}
+        />
 
-          {/* Dynamic Audio Waveform */}
-          <div className="hidden sm:flex items-center gap-0.5 h-5 px-1">
-            {waveformBars.map((height, i) => (
-              <span
-                key={i}
-                className={`w-[2px] rounded-full transition-all duration-300 ${
-                  isListening
-                    ? "bg-[#00d9ff] animate-pulse"
-                    : "bg-[#8493b2]/40"
-                }`}
-                style={{
-                  height: isListening ? `${Math.max(20, (height + Math.random() * 50) % 100)}%` : "30%",
-                }}
-              />
-            ))}
-          </div>
-
-          <div className="hidden md:block">
-            <span className="font-['Rajdhani',sans-serif] text-[10px] font-bold text-[#00d9ff] tracking-widest uppercase block leading-none">
-              ULTRON COMMAND
-            </span>
-            <span className="text-[8px] text-[#8493b2] tracking-wider uppercase">
-              {isListening ? "LISTENING..." : isProcessing ? "EXECUTING..." : "AWAITS INTENT"}
-            </span>
-          </div>
-        </div>
-
-        {/* Center: Omni-Intent Input Field */}
-        <div className="flex-1 relative">
+        {/* Left: Input container with exact Section 17 styling */}
+        <div style={{ flex: 1, position: "relative" }}>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Speak, type, think, create... 'Build AETHORA AI Platform', 'Audit CVEs'..."
-            className="w-full bg-transparent px-2 py-1.5 text-zinc-100 placeholder-[#8493b2]/60 text-xs focus:outline-none font-mono"
+            placeholder="Ask ULTRON to research, build, analyze, automate..."
+            style={{
+              width: "100%",
+              height: "44px",
+              background: "rgba(5, 8, 20, 0.95)",
+              color: "#EAF2FF",
+              border: "1px solid rgba(99, 232, 255, 0.25)",
+              borderRadius: "8px",
+              padding: "0 14px",
+              fontSize: "13px",
+              fontFamily: "var(--ultron-font)",
+              outline: "none",
+              transition: "all 0.25s ease",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4)",
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = "rgba(99, 232, 255, 0.60)";
+              e.currentTarget.style.boxShadow = "0 0 20px rgba(99, 232, 255, 0.08)";
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = "rgba(99, 232, 255, 0.25)";
+              e.currentTarget.style.boxShadow = "0 4px 20px rgba(0, 0, 0, 0.4)";
+            }}
           />
+
+          {attachmentName && (
+            <div
+              style={{
+                position: "absolute",
+                right: "12px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: "10px",
+                color: "#63E8FF",
+                background: "rgba(99, 232, 255, 0.12)",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                border: "1px solid rgba(99, 232, 255, 0.3)",
+              }}
+            >
+              📎 {attachmentName}
+            </div>
+          )}
         </div>
 
-        {/* Right: Action Buttons & Transmit */}
-        <div className="flex items-center gap-2 shrink-0 pr-1">
-          <button
-            type="button"
-            onClick={() => setInput("Build AETHORA AI Platform with multimodal Conductor and Reality Checker")}
-            className="hidden xl:inline-block px-2 py-1 text-[9px] rounded bg-white/[0.04] border border-white/[0.08] text-[#8493b2] hover:text-zinc-200"
-          >
-            [EXAMPLE INTENT]
-          </button>
+        {/* Voice Button */}
+        <UltronButton
+          type="button"
+          variant={isListening ? "primary" : "secondary"}
+          onClick={toggleVoice}
+          title={isListening ? "Listening... Click to stop" : "Voice Input"}
+          style={{
+            height: "44px",
+            minWidth: "44px",
+            padding: "0",
+            fontSize: "16px",
+            borderRadius: "8px",
+          }}
+        >
+          {isListening ? "●" : "🎙"}
+        </UltronButton>
 
-          <button
-            type="submit"
-            disabled={isProcessing}
-            className="px-4 py-1.5 rounded bg-gradient-to-r from-[#00d9ff] to-[#88f5ff] text-black font-['Rajdhani',sans-serif] font-bold text-xs tracking-widest uppercase hover:shadow-[0_0_20px_#00d9ff] transition-all duration-300 disabled:opacity-50"
-          >
-            {isProcessing ? "PROCESSING..." : "TRANSMIT ➔"}
-          </button>
-        </div>
+        {/* Attachment Button */}
+        <UltronButton
+          type="button"
+          variant="secondary"
+          onClick={handleAttachmentClick}
+          title="Attach file / data"
+          style={{
+            height: "44px",
+            minWidth: "44px",
+            padding: "0",
+            fontSize: "16px",
+            borderRadius: "8px",
+          }}
+        >
+          📎
+        </UltronButton>
+
+        {/* Send Button */}
+        <UltronButton
+          type="submit"
+          variant="primary"
+          disabled={!input.trim() || isProcessing}
+          title="Send command"
+          style={{
+            height: "44px",
+            minWidth: "80px",
+            fontSize: "13px",
+            fontWeight: 700,
+            borderRadius: "8px",
+            letterSpacing: "0.8px",
+          }}
+        >
+          {isProcessing ? "TRANSMITTING..." : "TRANSMIT ➔"}
+        </UltronButton>
       </form>
     </div>
   );

@@ -165,7 +165,7 @@ export default function MobileCompanionDeck({
           <button
             type="button"
             onClick={() => setIsListening(!isListening)}
-            className="w-8 h-8 rounded-full bg-[#00d9ff] text-black font-bold flex items-center justify-center"
+            className="w-8 h-8 rounded-full bg-[#63e8ff]/20 border border-[#63e8ff]/40 text-[#63e8ff] hover:bg-[#63e8ff]/30 font-bold flex items-center justify-center transition-all"
           >
             🎙
           </button>

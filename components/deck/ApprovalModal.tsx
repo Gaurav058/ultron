@@ -88,7 +88,7 @@ export default function ApprovalModal({
               onApprove(gate.id);
               onClose();
             }}
-            className="px-6 py-2 rounded font-bold text-black bg-[#ffaa30] hover:bg-[#ffcc66] shadow-[0_0_20px_rgba(255,170,48,0.5)] transition-all tracking-wider"
+            className="px-6 py-2 rounded font-bold text-[#ffd166] bg-[#ffd166]/15 hover:bg-[#ffd166]/25 border border-[#ffd166]/40 shadow-[0_0_20px_rgba(255,209,102,0.3)] transition-all tracking-wider"
           >
             [AUTHORIZE & EXECUTE]
           </button>

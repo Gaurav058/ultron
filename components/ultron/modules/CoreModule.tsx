@@ -2,10 +2,13 @@
 
 import React from "react";
 import InfinityCore, { UltronCoreState } from "../InfinityCore";
+import ActiveAgentsPanel from "../ActiveAgentsPanel";
+import CurrentMissionCard from "../CurrentMissionCard";
+import AttentionPanel from "../AttentionPanel";
+import LowerTelemetryDeck from "../LowerTelemetryDeck";
 import { Mission, PolicyGate } from "../../../core/types/mission";
-import { CORE_AGENT_ROSTER } from "../../../core/conductor/agentRoster";
 
-interface CoreModuleProps {
+export interface CoreModuleProps {
   coreState: UltronCoreState;
   activeMission?: Mission;
   modelAccuracy?: string;
@@ -13,8 +16,9 @@ interface CoreModuleProps {
   activeContext?: string;
   onToggleVoice?: () => void;
   onOpenMission?: () => void;
+  onCreateMission?: () => void;
   isListening?: boolean;
-  activityFeed: { stamp: string; agent: string; event: string; state: string }[];
+  activityFeed: { timestamp: string; source: string; event: string; status: string }[];
   pendingGates: PolicyGate[];
   onOpenApprovals: () => void;
   doctorHealth: string;
@@ -28,6 +32,7 @@ export default function CoreModule({
   activeContext = "84%",
   onToggleVoice,
   onOpenMission,
+  onCreateMission,
   isListening = false,
   activityFeed,
   pendingGates,
@@ -35,11 +40,30 @@ export default function CoreModule({
   doctorHealth,
 }: CoreModuleProps) {
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-      {/* Upper 2-column grid: Center Stage (InfinityCore) + Right Rail (Agents & Attention) */}
-      <div className="command-center">
-        {/* Center Stage: Infinity Core with ULTRON Artwork inside */}
-        <section className="center-stage">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+        gap: "10px",
+        padding: "8px 1.4vw 0",
+      }}
+    >
+      {/* Upper Grid: Center Stage (ULTRON CORE) + Right Rail (Agents, Mission, Attention) */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 340px",
+          gap: "10px",
+          flex: 1,
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
+        {/* Center Stage: Infinity Core with Cognitive Loop */}
+        <div style={{ minWidth: 0, height: "100%", overflowY: "auto" }}>
           <InfinityCore
             status={coreState}
             activeMission={activeMission}
@@ -48,140 +72,46 @@ export default function CoreModule({
             activeContext={activeContext}
             onToggleVoice={onToggleVoice}
             onOpenMission={onOpenMission}
+            onCreateMission={onCreateMission}
             isListening={isListening}
           />
-        </section>
+        </div>
 
-        {/* Right Rail: Active Agents & Attention Panels */}
-        <aside className="right-rail">
-          {/* Active Agents Panel */}
-          <div className="holo-panel agents-panel">
-            <div className="panel-title">
-              ACTIVE AGENTS <span>{CORE_AGENT_ROSTER.length} REGISTERED</span>
-            </div>
-            <div className="overflow-y-auto max-h-[calc(100%-25px)] pr-1">
-              {CORE_AGENT_ROSTER.slice(0, 7).map((agent) => {
-                const assignedTask = activeMission?.tasks.find((t) => t.assignedAgent === agent.id);
-                const isRunning = assignedTask?.status === "RUNNING";
-                const isDone = assignedTask?.status === "COMPLETED";
-                const progress = isDone ? 100 : isRunning ? (assignedTask?.progress || 65) : 0;
-                const statusLabel = isRunning ? "RUNNING" : isDone ? "READY" : "IDLE";
+        {/* Right Rail: Active Agents, Current Mission, Attention */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+            height: "100%",
+            overflowY: "auto",
+            paddingRight: "2px",
+          }}
+        >
+          <CurrentMissionCard
+            mission={activeMission}
+            onOpenMissionControl={onOpenMission}
+            onCreateMission={onCreateMission}
+          />
 
-                return (
-                  <div className="agent" key={agent.id}>
-                    <div className="agent-avatar">{agent.name.slice(0, 1)}</div>
-                    <div className="agent-info">
-                      <b>{agent.name.toUpperCase()}</b>
-                      <small>{assignedTask?.title || agent.role}</small>
-                    </div>
-                    <strong>{progress > 0 ? `${progress}%` : statusLabel}</strong>
-                    <div className="agent-line">
-                      <i style={{ width: `${progress}%` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <ActiveAgentsPanel
+            activeMission={activeMission}
+          />
 
-          {/* Attention & Approval Panel */}
-          <div className="holo-panel approval-panel">
-            <div className="panel-title">
-              ATTENTION <span>{pendingGates.length > 0 ? "ACTION REQUIRED" : "SECURE"}</span>
-            </div>
-            {pendingGates.length > 0 ? (
-              <div
-                className="attention-row text-[#ffd166] cursor-pointer flex items-center justify-between"
-                onClick={onOpenApprovals}
-              >
-                <span>
-                  <span className="violet-dot bg-[#ffd166] shadow-[0_0_8px_#ffd166]" />{" "}
-                  {pendingGates.length} Gate Awaiting Approval
-                </span>
-                <span className="text-[7px] underline font-bold text-[#63e8ff]">REVIEW</span>
-              </div>
-            ) : (
-              <div className="attention-row">
-                <span className="cyan-dot" /> No active policy blockers
-              </div>
-            )}
-            <div className="attention-row">
-              <span className="violet-dot" /> 6 MCP Tools Connected
-            </div>
-          </div>
-        </aside>
+          <AttentionPanel
+            pendingGates={pendingGates}
+            onOpenApprovals={onOpenApprovals}
+          />
+        </div>
       </div>
 
-      {/* Lower Telemetry Deck: World Intelligence + Live Activity + System Metrics */}
-      <section className="telemetry">
-        {/* World Intelligence */}
-        <div className="holo-panel world">
-          <div className="panel-title">
-            WORLD INTELLIGENCE <span>LIVE FEEDS</span>
-          </div>
-          <div className="world-map">
-            <div className="map-grid" />
-            <div className="map-glow g1" />
-            <div className="map-glow g2" />
-            <div className="map-glow g3" />
-          </div>
-          <div className="world-stats">
-            <span>
-              GLOBAL SIGNALS <b>12</b>
-            </span>
-            <span>
-              TECH DEVELOPMENTS <b>09</b>
-            </span>
-            <span>
-              SYSTEM EVENTS <b>05</b>
-            </span>
-          </div>
-        </div>
-
-        {/* Live Activity Stream */}
-        <div className="holo-panel activity">
-          <div className="panel-title">
-            LIVE ACTIVITY STREAM <span>REAL-TIME</span>
-          </div>
-          <div className="overflow-y-auto max-h-[85%] pr-1">
-            {activityFeed.length === 0 ? (
-              <div className="text-[7px] text-[#5d6985] py-4 text-center">NO RECENT ACTIVITY</div>
-            ) : (
-              activityFeed.map((item, idx) => (
-                <div className="activity-row" key={`${item.stamp}-${idx}`}>
-                  <time>{item.stamp}</time>
-                  <b>{item.agent}</b>
-                  <span>{item.event}</span>
-                  <em>{item.state}</em>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* System Metrics */}
-        <div className="holo-panel metrics">
-          <div className="panel-title">
-            SYSTEM METRICS <span>{doctorHealth}</span>
-          </div>
-          {[
-            ["CPU USAGE", "32%", 32],
-            ["MEMORY LOAD", "64%", 64],
-            ["NETWORK BANDWIDTH", "1.2 Tb/s", 72],
-            ["SYSTEM HEALTH", doctorHealth, 100],
-          ].map(([label, value, width]) => (
-            <div className="metric-block" key={label}>
-              <div>
-                <span>{label}</span>
-                <b>{value}</b>
-              </div>
-              <div className="metric-line">
-                <i style={{ width: `${width}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Lower Telemetry Deck: World Intelligence | Live Activity | System Metrics */}
+      <div style={{ height: "185px", flexShrink: 0 }}>
+        <LowerTelemetryDeck
+          activityEvents={activityFeed}
+          doctorHealth={doctorHealth}
+        />
+      </div>
     </div>
   );
 }

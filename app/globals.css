@@ -12,18 +12,23 @@ body {
 }
 
 :root {
-  /* ULTRON Unified Design Tokens */
+  /* Global ULTRON Typography & Color System */
   --ultron-bg: #02030A;
+  --ultron-bg-2: #050817;
   --ultron-bg-secondary: #050817;
 
-  --ultron-panel: rgba(6, 9, 24, .78);
-  --ultron-panel-hover: rgba(12, 16, 38, .88);
+  --ultron-panel: rgba(7, 11, 28, 0.88);
+  --ultron-panel-solid: #080D20;
+  --ultron-panel-hover: rgba(12, 18, 44, 0.92);
 
-  --ultron-border: rgba(110, 140, 255, .20);
+  --ultron-border: rgba(105, 150, 255, 0.22);
+  --ultron-border-strong: rgba(99, 232, 255, 0.45);
 
-  --ultron-text: #DCE4F5;
-  --ultron-text-secondary: #8D9AB5;
-  --ultron-muted: #5D6985;
+  --ultron-text-primary: #EAF2FF;
+  --ultron-text-secondary: #AAB8D4;
+  --ultron-text-muted: #71809D;
+  --ultron-heading-secondary: #C9D5EA;
+  --ultron-label: #8FA3C5;
 
   --ultron-cyan: #63E8FF;
   --ultron-violet: #8D75FF;
@@ -33,6 +38,15 @@ body {
   --ultron-warning: #FFD166;
   --ultron-error: #FF667A;
 
+  --ultron-font:
+    Inter,
+    Geist,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
   /* Aliases for UI classes */
   --bg: var(--ultron-bg);
   --panel: var(--ultron-panel);
@@ -40,53 +54,130 @@ body {
   --cyan: var(--ultron-cyan);
   --violet: var(--ultron-violet);
   --magenta: var(--ultron-magenta);
-  --text: var(--ultron-text);
-  --muted: var(--ultron-muted);
+  --text: var(--ultron-text-primary);
+  --muted: var(--ultron-text-muted);
   --line: var(--ultron-border);
 
-  --font-display: 'Inter', 'SF Pro Display', 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', -apple-system, sans-serif;
-  --font-tech: 'Inter', 'SF Pro Display', sans-serif;
+  --font-display: var(--ultron-font);
+  --font-body: var(--ultron-font);
+  --font-tech: var(--ultron-font);
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
   /* Legacy Backward Compatibility Tokens */
-  --color-primary: #00d9ff;
-  --color-primary-rgb: 0, 217, 255;
+  --color-primary: #63E8FF;
+  --color-primary-rgb: 99, 232, 255;
   --color-hot: #88f5ff;
   --color-hot-rgb: 136, 245, 255;
-  --color-glow: rgba(0, 217, 255, 0.7);
-  --hud-bg: rgba(8, 12, 30, 0.65);
-  --hud-border: rgba(0, 217, 255, 0.35);
-  --hud-btn-hover-bg: rgba(0, 60, 90, 0.7);
-  --hud-btn-active-bg: rgba(0, 90, 135, 0.8);
-  --hud-btn-pressed-bg: rgba(0, 120, 180, 0.6);
-  --camera-panel-bg: #000c14;
-  --camera-panel-shadow: rgba(0, 217, 255, 0.15);
+  --color-glow: rgba(99, 232, 255, 0.7);
+  --hud-bg: rgba(7, 11, 28, 0.88);
+  --hud-border: rgba(105, 150, 255, 0.22);
+  --hud-btn-hover-bg: rgba(99, 232, 255, 0.16);
+  --hud-btn-active-bg: rgba(99, 232, 255, 0.25);
+  --hud-btn-pressed-bg: rgba(99, 232, 255, 0.35);
+  --camera-panel-bg: #050817;
+  --camera-panel-shadow: rgba(99, 232, 255, 0.15);
   --camera-video-filter: sepia(1) hue-rotate(155deg) saturate(2.2) brightness(0.75) contrast(1.15);
 }
 
-body.theme-jarvis {
-  --color-primary: #00f0ff;
-  --color-primary-rgb: 0, 240, 255;
-  --color-hot: #88f5ff;
-  --color-hot-rgb: 136, 245, 255;
-  --color-glow: rgba(0, 240, 255, 0.7);
-  --hud-bg: rgba(0, 20, 30, 0.55);
-  --hud-border: rgba(0, 240, 255, 0.45);
-  --hud-btn-hover-bg: rgba(0, 60, 90, 0.7);
-  --hud-btn-active-bg: rgba(0, 90, 135, 0.8);
-  --hud-btn-pressed-bg: rgba(0, 120, 180, 0.6);
-  --camera-panel-bg: #000c14;
-  --camera-panel-shadow: rgba(0, 240, 255, 0.15);
-  --camera-video-filter: sepia(1) hue-rotate(155deg) saturate(2.2) brightness(0.75) contrast(1.15);
-}
-
+html,
 body {
-  background: #000;
-  overflow: hidden;
-  font-family: "Courier New", monospace;
-  transition: background-color 0.4s ease;
+  margin: 0;
+  padding: 0;
+
+  min-height: 100%;
+  width: 100%;
+
+  background: var(--ultron-bg);
+  color: var(--ultron-text-primary);
+
+  font-family: var(--ultron-font);
+
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+body * {
+  border-color: var(--ultron-border);
+}
+
+/* Force form controls to use ULTRON theme */
+input,
+textarea,
+select {
+  background: rgba(4, 7, 18, 0.9);
+  color: var(--ultron-text-primary);
+  border: 1px solid var(--ultron-border);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ultron-text-muted);
+}
+
+select option {
+  background: #080D20;
+  color: #EAF2FF;
+}
+
+button {
+  color: var(--ultron-text-primary);
+}
+
+@keyframes ultron-status-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+
+/* Typography Hierarchy Utilities */
+.ultron-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ultron-text-primary);
+  letter-spacing: 0.8px;
+  line-height: 1.2;
+}
+
+.ultron-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ultron-heading-secondary);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+.ultron-body {
+  font-size: 13px;
+  color: var(--ultron-text-secondary);
+  line-height: 1.5;
+}
+
+.ultron-meta {
+  font-size: 11px;
+  color: var(--ultron-text-muted);
+  letter-spacing: 0.3px;
+}
+
+.ultron-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ultron-label);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.ultron-cyan { color: var(--ultron-cyan); }
+.ultron-violet { color: var(--ultron-violet); }
+.ultron-success { color: var(--ultron-success); }
+.ultron-warning { color: var(--ultron-warning); }
+.ultron-error { color: var(--ultron-error); }
+
 
 .orb-root {
   position: fixed;
@@ -537,8 +628,9 @@ body {
 }
 
 .ticker .label {
-  background: var(--color-primary);
-  color: #000;
+  background: rgba(99, 232, 255, 0.2);
+  color: #63E8FF;
+  border-right: 1px solid var(--ultron-border);
   font-weight: bold;
   padding: 0 10px;
   height: 100%;
@@ -654,8 +746,8 @@ body {
 }
 
 .window-header .ctrl-btn:hover {
-  background: var(--color-primary);
-  color: #000;
+  background: rgba(99, 232, 255, 0.2);
+  color: #63E8FF;
   text-shadow: none;
 }
 
@@ -983,8 +1075,8 @@ body {
   transition: all 0.2s ease;
 }
 .panel-refresh:hover {
-  background: var(--color-primary);
-  color: #000;
+  background: rgba(99, 232, 255, 0.2);
+  color: #63E8FF;
   transform: rotate(90deg);
 }
 .panel-body {
@@ -1170,7 +1262,7 @@ body {
 .command-center {
   height: 52.5vh;
   display: grid;
-  grid-template-columns: minmax(88px, 7.4vw) minmax(0, 1fr) minmax(280px, 24vw);
+  grid-template-columns: minmax(150px, 11vw) minmax(0, 1fr) minmax(320px, 25vw);
   gap: 10px;
   padding: 10px 1.4vw 0;
   position: relative;
@@ -1180,7 +1272,7 @@ body {
 .module-deck {
   height: 75vh;
   display: grid;
-  grid-template-columns: minmax(88px, 7.4vw) minmax(0, 1fr);
+  grid-template-columns: minmax(150px, 11vw) minmax(0, 1fr);
   gap: 10px;
   padding: 10px 1.4vw 0;
   position: relative;
@@ -1248,41 +1340,55 @@ body {
 }
 
 .nav-item {
-  border: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   text-align: left;
-  padding: 10px 5px;
-  color: #647497;
+  padding: 8px 10px;
+  color: #71809D;
   display: flex;
-  gap: 7px;
+  gap: 8px;
   align-items: center;
   cursor: pointer;
-  border-left: 1px solid transparent;
-  transition: 0.25s;
+  transition: all 0.2s ease;
+  font-family: var(--ultron-font);
+  width: 100%;
+}
+.nav-item:hover {
+  color: #C9D5EA;
+  background: rgba(255, 255, 255, 0.02);
 }
 .nav-item strong {
   display: block;
-  font-size: 7px;
-  letter-spacing: 0.5px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
 }
 .nav-item small {
   display: block;
-  font-size: 5px;
-  color: #455273;
-  margin-top: 2px;
+  font-size: 10px;
+  color: #71809D;
+  margin-top: 1px;
 }
 .nav-item .icon {
-  font-size: 13px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
 }
 .nav-item.active {
-  color: #dff8ff;
-  border-left-color: var(--cyan);
-  background: linear-gradient(90deg, rgba(0, 217, 255, 0.10), transparent);
-  box-shadow: inset 5px 0 16px rgba(0, 217, 255, 0.04);
+  color: #63E8FF;
+  background: rgba(99, 232, 255, 0.07);
+  border: 1px solid rgba(99, 232, 255, 0.28);
+  box-shadow: 0 0 16px rgba(99, 232, 255, 0.06);
 }
 .nav-item.active .icon {
-  color: var(--cyan);
-  text-shadow: 0 0 12px var(--cyan);
+  color: #63E8FF;
+  text-shadow: 0 0 10px #63E8FF;
+}
+.nav-item.active small {
+  color: #8FA3C5;
 }
 
 .rail-core {
@@ -1838,43 +1944,8 @@ body {
   margin-top: 2px;
 }
 
-/* Real Central ULTRON Entity Artwork */
-.ultron-core-art,
-.ultron-reference-art {
-  width: min(72vw, 900px);
-  max-width: 100%;
-  height: auto;
-  max-height: 85%;
-  object-fit: contain;
-  mix-blend-mode: screen;
-  filter:
-    drop-shadow(0 0 25px rgba(99, 232, 255, 0.18))
-    drop-shadow(0 0 55px rgba(141, 117, 255, 0.14));
-  mask-image:
-    radial-gradient(
-      ellipse at center,
-      black 55%,
-      transparent 100%
-    );
-  -webkit-mask-image:
-    radial-gradient(
-      ellipse at center,
-      black 55%,
-      transparent 100%
-    );
-  pointer-events: none;
-  z-index: 2;
-}
+/* Zero Artwork Mode - Core UI Centerpiece Replaces Artwork */
 
-.infinity-core:after {
-  content: "";
-  position: absolute;
-  inset: 12%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 54%, rgba(90, 80, 255, 0.08), transparent 42%, rgba(0, 0, 0, 0.25) 78%, transparent 100%);
-  pointer-events: none;
-  z-index: 3;
-}
 
 /* Reference artwork is the authoritative ULTRON entity. CSS robot remains disabled. */
 .ultron {
@@ -1935,38 +2006,39 @@ body {
   margin-top: 6px;
 }
 
-@media (max-width: 1050px) {
-  .command-center { grid-template-columns: 78px 1fr 250px; }
-  .wordmark { font-size: 21px; }
-  .core-status, .connected { width: 125px; }
-  .mission-center { width: 145px; }
-  .system-strip b { font-size: 5px; }
+@media (max-width: 1024px) {
+  .core-command-center > div:first-child {
+    grid-template-columns: 1fr !important;
+  }
+  .telemetry-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
 }
 
-@media (max-width: 800px) {
-  body { overflow: auto; }
-  .ultron-shell { min-height: 100vh; height: auto; }
-  .topbar { height: 64px; grid-template-columns: auto 1fr auto; }
-  .wordmark { font-size: 16px; letter-spacing: 5px; }
-  .wordmark span { display: none; }
-  .top-right > div:first-child, .user-chip { display: none; }
-  .command-center { height: auto; display: block; padding: 8px 12px; }
-  .left-rail { display: none; }
-  .center-stage { height: 500px; }
-  .core-status { left: 8px; }
-  .connected { left: 8px; bottom: 8px; }
-  .mission-center { right: 8px; bottom: 8px; }
-  .right-rail { margin-top: 8px; }
-  .agents-panel { height: auto; }
-  .telemetry { height: auto; grid-template-columns: 1fr; padding: 8px 12px; }
-  .world { min-height: 180px; }
-  .activity { min-height: 180px; }
-  .metrics { min-height: 180px; }
-  .command-bar { margin: 8px 12px; height: 58px; grid-template-columns: 1fr 38px 38px; }
-  .command-label { display: none; }
-  .system-strip { grid-template-columns: repeat(2, 1fr); height: auto; margin: 8px 12px; }
-  .system-strip > div { padding: 12px 4px; }
-  .infinity-core { width: 390px; height: 390px; }
+@media (max-width: 768px) {
+  body {
+    overflow-y: auto !important;
+  }
+  .ultron-shell-root {
+    height: auto !important;
+    min-height: 100vh;
+  }
+  .ultron-workspace-container {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  .ultron-workspace-container > div:first-child {
+    width: 100% !important;
+    height: auto !important;
+  }
+  .core-command-center {
+    height: auto !important;
+    padding: 8px !important;
+  }
+  .telemetry-grid {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+  }
 }
 
 @media (max-width: 430px) {

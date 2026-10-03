@@ -1,24 +1,24 @@
 "use client";
 
 import React, { useState } from "react";
+import UltronPanel from "../../common/UltronPanel";
+import UltronStatus from "../../common/UltronStatus";
+import UltronButton from "../../common/UltronButton";
 import { MemoryEngine } from "../../../core/memory/memoryEngine";
-import { MemoryNode, MemoryTier } from "../../../core/types/memory";
+import { MemoryNode } from "../../../core/types/memory";
 
-type MemorySection =
+type BrainSection =
   | "ALL"
   | "WORKING MEMORY"
   | "PROJECT MEMORY"
-  | "USER MEMORY"
-  | "SEMANTIC KNOWLEDGE"
-  | "RECENT LEARNING"
-  | "FACTS"
-  | "SOURCES";
+  | "USER PREFERENCES"
+  | "KNOWLEDGE"
+  | "RECENT CONTEXT";
 
 export default function BrainModule() {
-  const [selectedSection, setSelectedSection] = useState<MemorySection>("ALL");
+  const [selectedSection, setSelectedSection] = useState<BrainSection>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [newContent, setNewContent] = useState("");
-  const [newScope, setNewScope] = useState("WORKING");
 
   const allNodes = MemoryEngine.getNodes();
 
@@ -29,20 +29,18 @@ export default function BrainModule() {
       `mem-${Date.now()}`,
       `Recorded Intel: ${newContent.slice(0, 32)}`,
       newContent.trim(),
-      "user-command-deck"
+      "operator-command"
     );
     setNewContent("");
   };
 
-  const sections: { id: MemorySection; label: string; desc: string }[] = [
-    { id: "ALL", label: "ALL MEMORY", desc: "Unified cognitive matrix" },
-    { id: "WORKING MEMORY", label: "WORKING MEMORY (L1)", desc: "Active mission state & volatile context" },
-    { id: "PROJECT MEMORY", label: "PROJECT MEMORY (L2)", desc: "Workspace files, configs & build artifacts" },
-    { id: "USER MEMORY", label: "USER MEMORY (L2)", desc: "Prime User preferences, traits & mesh pairings" },
-    { id: "SEMANTIC KNOWLEDGE", label: "SEMANTIC KNOWLEDGE (L3)", desc: "Vector embeddings, concepts & domain maps" },
-    { id: "RECENT LEARNING", label: "RECENT LEARNING (L4)", desc: "Empirically validated agent execution heuristics" },
-    { id: "FACTS", label: "FACTS (L4 INVARIANTS)", desc: "Durable ground truth & validated invariants" },
-    { id: "SOURCES", label: "SOURCES & CITATIONS (L5)", desc: "External provenance & cryptographic hashes" },
+  const sections: { id: BrainSection; label: string; desc: string }[] = [
+    { id: "ALL", label: "ALL MEMORY", desc: "Unified memory matrix" },
+    { id: "WORKING MEMORY", label: "WORKING MEMORY", desc: "Active volatile session context" },
+    { id: "PROJECT MEMORY", label: "PROJECT MEMORY", desc: "Codebase architecture & build artifacts" },
+    { id: "USER PREFERENCES", label: "USER PREFERENCES", desc: "Operator settings & governance policies" },
+    { id: "KNOWLEDGE", label: "KNOWLEDGE", desc: "Durable L4 vector facts & domain ontology" },
+    { id: "RECENT CONTEXT", label: "RECENT CONTEXT", desc: "Empirically verified execution traces" },
   ];
 
   const filteredNodes = allNodes.filter((node) => {
@@ -50,11 +48,9 @@ export default function BrainModule() {
       if (selectedSection === "ALL") return true;
       if (selectedSection === "WORKING MEMORY") return node.tier === "L1_WORKING";
       if (selectedSection === "PROJECT MEMORY") return node.tier === "L2_EPISODIC" && node.tags.includes("project");
-      if (selectedSection === "USER MEMORY") return node.tier === "L2_EPISODIC" && !node.tags.includes("project");
-      if (selectedSection === "SEMANTIC KNOWLEDGE") return node.tier === "L3_SEMANTIC";
-      if (selectedSection === "RECENT LEARNING") return node.tier === "L4_LONGTERM" && node.tags.includes("learning");
-      if (selectedSection === "FACTS") return node.tier === "L4_LONGTERM";
-      if (selectedSection === "SOURCES") return node.sourceUri !== undefined;
+      if (selectedSection === "USER PREFERENCES") return node.tags.includes("preference") || node.tags.includes("user");
+      if (selectedSection === "KNOWLEDGE") return node.tier === "L3_SEMANTIC" || node.tier === "L4_LONGTERM";
+      if (selectedSection === "RECENT CONTEXT") return node.tier === "L4_LONGTERM" || node.tags.includes("learning");
       return true;
     })();
 
@@ -68,136 +64,175 @@ export default function BrainModule() {
   });
 
   return (
-    <div className="flex-1 flex flex-col p-3 overflow-hidden select-none">
-      {/* Top Header */}
-      <div className="holo-panel p-3 mb-2 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shrink-0">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] text-[#63e8ff] font-bold tracking-widest uppercase">
-              BRAIN MEMORY & KNOWLEDGE ONTOLOGY
-            </span>
-            <span className="text-[7px] px-1.5 py-0.2 rounded bg-[#5ff0a0]/20 text-[#5ff0a0] border border-[#5ff0a0]/30 font-mono">
-              REALITY VALIDATED STORE
-            </span>
-          </div>
-          <div className="text-[8px] text-[#8d9ab5]">
-            Unverified AI hallucinations are rejected from long-term memory. Only reality-checked facts are promoted.
-          </div>
-        </div>
-
-        {/* Search */}
-        <div className="w-full md:w-64">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search semantic nodes, tags, facts..."
-            className="w-full bg-[#02030a]/90 border border-[#6e8cff]/25 px-2.5 py-1 text-[8px] text-[#dce4f5] rounded outline-none focus:border-[#63e8ff]"
-          />
-        </div>
-      </div>
-
-      {/* Main 2-Column Split: Memory Sections (Left) + Memory Nodes Grid (Right) */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-2 min-h-0 overflow-hidden">
-        {/* Left Column (4 cols): Memory Tier Navigation & Quick Add */}
-        <div className="lg:col-span-4 flex flex-col gap-2 min-h-0 overflow-hidden">
-          {/* Section Picker */}
-          <div className="holo-panel p-2 flex flex-col gap-1 overflow-y-auto shrink-0">
-            <div className="panel-title mb-1">
-              MEMORY SECTIONS <span>7 TIERS</span>
-            </div>
-            {sections.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setSelectedSection(s.id)}
-                className={`w-full text-left p-2 rounded transition-all flex flex-col ${
-                  selectedSection === s.id
-                    ? "bg-[#63e8ff]/15 border-l-2 border-[#63e8ff] text-[#dce4f5]"
-                    : "text-[#8d9ab5] hover:bg-white/[0.03] hover:text-[#dce4f5] border-l-2 border-transparent"
-                }`}
-              >
-                <div className="text-[9px] font-bold tracking-wider">{s.label}</div>
-                <div className="text-[6px] text-[#5d6985] mt-0.5">{s.desc}</div>
-              </button>
-            ))}
-          </div>
-
-          {/* Quick Memory Formulation Card */}
-          <form onSubmit={handleAddMemory} className="holo-panel p-2 flex flex-col gap-1.5 shrink-0">
-            <div className="panel-title">
-              FORMULATE MEMORY <span>INGESTION</span>
-            </div>
-            <textarea
-              rows={2}
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              placeholder="Record verified memory node..."
-              className="w-full bg-[#02030a]/90 border border-[#6e8cff]/25 p-2 text-[8px] text-[#dce4f5] rounded outline-none resize-none focus:border-[#63e8ff]"
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        height: "100%",
+        padding: "10px 1.4vw",
+        overflow: "hidden",
+        fontFamily: "var(--ultron-font)",
+      }}
+    >
+      {/* Brain Header (Section 19: Title: BRAIN, Subtitle: Memory and knowledge system) */}
+      <UltronPanel
+        title="BRAIN"
+        subtitle="Memory and knowledge system"
+        badge={<UltronStatus status="ONLINE" label={`${allNodes.length} NODES`} size="sm" />}
+        actions={
+          <div style={{ width: "240px" }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search memory..."
+              style={{
+                width: "100%",
+                height: "28px",
+                padding: "0 10px",
+                fontSize: "11px",
+                borderRadius: "4px",
+              }}
             />
-            <button
-              type="submit"
-              className="px-2.5 py-1 text-[8px] font-bold rounded bg-[#8d75ff]/20 text-[#8d75ff] border border-[#8d75ff]/40 hover:bg-[#8d75ff]/30 cursor-pointer text-center"
+          </div>
+        }
+      >
+        <div style={{ fontSize: "11px", color: "#AAB8D4" }}>
+          Unified five-tier memory ontology with zero hallucination promotion. Only reality-checked facts are committed to durable L4 vector storage.
+        </div>
+      </UltronPanel>
+
+      {/* Main Grid: Left Sections + Right Memory Items */}
+      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: "10px", flex: 1, minHeight: 0 }}>
+        {/* Sections Rail */}
+        <UltronPanel title="CATEGORIES" subtitle="Ontology Tiers">
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            {sections.map((s) => {
+              const isSelected = selectedSection === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSelectedSection(s.id)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    padding: "7px 10px",
+                    borderRadius: "6px",
+                    background: isSelected ? "rgba(99, 232, 255, 0.08)" : "transparent",
+                    border: isSelected ? "1px solid rgba(99, 232, 255, 0.35)" : "1px solid transparent",
+                    color: isSelected ? "#63E8FF" : "#AAB8D4",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.5px" }}>
+                    {s.label}
+                  </span>
+                  <span style={{ fontSize: "9px", color: isSelected ? "#C9D5EA" : "#71809D", marginTop: "1px" }}>
+                    {s.desc}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </UltronPanel>
+
+        {/* Memory Nodes View */}
+        <UltronPanel
+          title={selectedSection}
+          subtitle={`${filteredNodes.length} Nodes Indexed`}
+          badge={<UltronStatus status="ONLINE" label="PERSISTED" size="sm" />}
+        >
+          {filteredNodes.length === 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "40px 10px",
+                textAlign: "center",
+                gap: "8px",
+              }}
             >
-              COMMIT TO WORKING MEMORY
-            </button>
-          </form>
-        </div>
-
-        {/* Right Column (8 cols): Memory Overview Items */}
-        <div className="lg:col-span-8 holo-panel flex flex-col p-3 min-h-0 overflow-hidden">
-          <div className="panel-title pb-2 mb-2 border-b border-[#6e8cff]/15 shrink-0">
-            MEMORY OVERVIEW: {selectedSection} <span>{filteredNodes.length} NODES INDEXED</span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-            {filteredNodes.length === 0 ? (
-              <div className="text-[8px] text-[#5d6985] py-12 text-center font-mono">
-                NO MEMORY NODES RECORDED IN THIS CLASSIFICATION
+              <div style={{ fontSize: "13px", fontWeight: 700, color: "#EAF2FF" }}>
+                NO MEMORY NODES FOUND
               </div>
-            ) : (
-              filteredNodes.map((node) => {
-                const confPct = node.confidence !== undefined ? Math.round(node.confidence * 100) : 98;
-                return (
-                  <div
-                    key={node.id}
-                    className="p-2.5 rounded border border-[#6e8cff]/15 bg-[#030615]/70 hover:border-[#63e8ff]/30 transition-all"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#63e8ff] shadow-[0_0_6px_#63e8ff]" />
-                        <b className="text-[9px] text-[#dce4f5]">{node.title}</b>
-                      </div>
-                      <div className="flex items-center gap-1.5 font-mono text-[6px]">
-                        <span className="px-1 py-0.2 rounded bg-[#8d75ff]/15 text-[#8d75ff] border border-[#8d75ff]/30">
-                          {node.tier}
-                        </span>
-                        <span className="px-1 py-0.2 rounded bg-[#5ff0a0]/15 text-[#5ff0a0] border border-[#5ff0a0]/30">
-                          CONF: {confPct}%
-                        </span>
-                      </div>
-                    </div>
-
-                    <p className="text-[8px] text-[#8d9ab5] mb-2 leading-relaxed">
-                      {node.content}
-                    </p>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#6e8cff]/10 text-[6px] text-[#5d6985] font-mono">
-                      <div className="flex items-center gap-2">
-                        <span>SOURCE: <b className="text-[#dce4f5]">{node.authorAgent || node.sourceUri || "ULTRON-KERNEL"}</b></span>
-                        <span>STATUS: <b className="text-[#63e8ff]">{node.validationStatus}</b></span>
-                        <span>TYPE: <b className="text-[#8d75ff]">{node.tier}</b></span>
-                      </div>
-                      <div>
-                        STAMP: {new Date(node.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                      </div>
-                    </div>
+              <div style={{ fontSize: "11px", color: "#71809D" }}>
+                No facts or records match the current filter.
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: "8px",
+                overflowY: "auto",
+                maxHeight: "100%",
+                paddingRight: "4px",
+              }}
+            >
+              {filteredNodes.map((node) => (
+                <div
+                  key={node.id}
+                  style={{
+                    padding: "10px",
+                    borderRadius: "6px",
+                    background: "rgba(105, 150, 255, 0.03)",
+                    border: "1px solid rgba(105, 150, 255, 0.12)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#EAF2FF" }}>
+                      {node.title}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "9px",
+                        padding: "1px 5px",
+                        borderRadius: "3px",
+                        background: "rgba(99, 232, 255, 0.10)",
+                        color: "#63E8FF",
+                        border: "1px solid rgba(99, 232, 255, 0.25)",
+                        fontFamily: "var(--font-mono)",
+                      }}
+                    >
+                      {node.tier}
+                    </span>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+
+                  <div style={{ fontSize: "11px", color: "#AAB8D4", lineHeight: 1.4 }}>
+                    {node.content}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "auto",
+                      paddingTop: "6px",
+                      borderTop: "1px solid rgba(105, 150, 255, 0.08)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontSize: "9px",
+                      color: "#71809D",
+                    }}
+                  >
+                    <span>ID: {node.id.slice(0, 10)}</span>
+                    <span>Conf: {Math.round((node.confidence || 0.95) * 100)}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </UltronPanel>
       </div>
     </div>
   );

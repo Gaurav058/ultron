@@ -72,7 +72,7 @@ export default function PillarSystem() {
         <button
           onClick={runScan}
           disabled={isScanning}
-          className="px-4 py-2 bg-[#ffaa30] hover:bg-[#ffcc66] text-black font-bold rounded shadow-[0_0_15px_rgba(255,170,48,0.3)] transition-all"
+          className="px-4 py-2 bg-[#ffd166]/15 hover:bg-[#ffd166]/25 border border-[#ffd166]/40 text-[#ffd166] font-bold rounded shadow-[0_0_15px_rgba(255,209,102,0.2)] transition-all"
         >
           {isScanning ? "SCANNING SUBSYSTEMS..." : "[RUN DOCTOR DIAGNOSTIC]"}
         </button>

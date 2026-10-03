@@ -2,14 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ULTRON V2 — Cognitive Operating System",
-  description: "Cross-platform cognitive operating system. Think, Know, Act, Verify, Remember.",
+  title: "ULTRON — Intelligence Operating System",
+  description: "Cognitive Control Plane. Think, Know, Act, Verify, Remember.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#000000",
+  themeColor: "#02030A",
 };
 
 export default function RootLayout({

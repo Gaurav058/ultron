@@ -50,8 +50,8 @@ export default function UiReferencePage() {
                 onClick={() => setComparisonMode(mode)}
                 className={`px-2 py-1 rounded text-[10px] tracking-wider uppercase transition-colors ${
                   comparisonMode === mode
-                    ? "bg-[#00d9ff] text-black font-bold shadow-[0_0_10px_rgba(0,217,255,0.4)]"
-                    : "text-[#7180a4] hover:text-white"
+                    ? "bg-[#63e8ff]/20 text-[#63e8ff] border border-[#63e8ff]/40 font-bold shadow-[0_0_10px_rgba(99,232,255,0.3)]"
+                    : "text-[#7180a4] hover:text-[#eaf2ff]"
                 }`}
               >
                 {mode.replace("-", " ")}

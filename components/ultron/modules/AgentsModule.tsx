@@ -1,181 +1,257 @@
 "use client";
 
 import React, { useState } from "react";
+import UltronPanel from "../../common/UltronPanel";
+import UltronStatus, { UltronStatusType } from "../../common/UltronStatus";
+import UltronButton from "../../common/UltronButton";
 import { CORE_AGENT_ROSTER } from "../../../core/conductor/agentRoster";
 import { AgentDefinition } from "../../../core/types/agent";
 
-interface AgentsModuleProps {
+export interface AgentsModuleProps {
   activeTaskAgentId?: string;
 }
 
 export default function AgentsModule({ activeTaskAgentId }: AgentsModuleProps) {
   const [selectedAgent, setSelectedAgent] = useState<AgentDefinition>(CORE_AGENT_ROSTER[0]);
 
-  // Ensure all 10 canonical ULTRON specialists are represented
   const agents = CORE_AGENT_ROSTER;
+  const runningAgents = agents.filter((a) => a.id === activeTaskAgentId || a.status === "EXECUTING");
+
+  const getAgentPermissions = (agent: AgentDefinition) => {
+    switch (agent.id) {
+      case "agent-conductor":
+        return "Level 5 (Sovereign Orchestration, Task DAG compilation)";
+      case "agent-security":
+        return "Level 5 (Security Interceptor, Policy Gate Enforcement)";
+      case "agent-builder":
+        return "Level 4 (Sandbox File Write, Code Generation)";
+      case "agent-reality-checker":
+        return "Level 4 (Empirical Assertion Verification, Test Runner)";
+      case "agent-researcher":
+        return "Level 3 (Multi-Source Web Search, Vector Retrieval)";
+      case "agent-memory-curator":
+        return "Level 4 (L4 Durable Vector Promotion, Fact Ledger)";
+      default:
+        return "Level 3 (Constrained Least-Privilege Execution)";
+    }
+  };
 
   return (
-    <div className="flex-1 flex flex-col p-3 overflow-hidden select-none">
-      {/* Top Header */}
-      <div className="holo-panel p-3 mb-2 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shrink-0">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] text-[#63e8ff] font-bold tracking-widest uppercase">
-              ULTRON AI WORKFORCE & SPECIALIST FLEET
-            </span>
-            <span className="text-[7px] px-1.5 py-0.2 rounded bg-[#8d75ff]/20 text-[#8d75ff] border border-[#8d75ff]/30 font-mono">
-              BOUNDED COGNITIVE ROLES
-            </span>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        height: "100%",
+        padding: "10px 1.4vw",
+        overflow: "hidden",
+        fontFamily: "var(--ultron-font)",
+      }}
+    >
+      {/* Agents Header (Section 20: Title: AGENT RUNTIME) */}
+      <UltronPanel
+        title="AGENT RUNTIME"
+        subtitle="Specialized AI Workforce Registry"
+        badge={<UltronStatus status={runningAgents.length > 0 ? "RUNNING" : "ONLINE"} label={`${agents.length} AGENTS REGISTERED`} size="sm" />}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+          <div style={{ fontSize: "11px", color: "#AAB8D4", maxWidth: "600px" }}>
+            Isolated cognitive execution boundaries. Zero unconstrained swarms. Every agent possesses an isolated sandbox, bounded role contract, and verified permission scope.
           </div>
-          <div className="text-[8px] text-[#8d9ab5]">
-            Zero unconstrained peer-to-peer swarms. Every agent possesses an isolated sandbox, bounded system prompt, and verified tool authorization contract.
+          <div style={{ display: "flex", gap: "8px" }}>
+            <span style={{ fontSize: "11px", color: "#71809D" }}>
+              ACTIVE RUNTIMES: <strong style={{ color: runningAgents.length > 0 ? "#63E8FF" : "#5FF0A0" }}>{runningAgents.length}</strong>
+            </span>
           </div>
         </div>
+      </UltronPanel>
 
-        {/* Stats */}
-        <div className="flex items-center gap-3 text-[8px] font-mono">
-          <div className="px-2.5 py-1 rounded bg-[#02030a]/80 border border-[#6e8cff]/20">
-            REGISTERED: <b className="text-[#63e8ff]">{agents.length}</b>
+      {/* Active Runs Banner / Empty state */}
+      {runningAgents.length === 0 ? (
+        <div
+          style={{
+            padding: "8px 12px",
+            borderRadius: "6px",
+            background: "rgba(105, 150, 255, 0.04)",
+            border: "1px solid rgba(105, 150, 255, 0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#EAF2FF" }}>NO ACTIVE RUNS</span>
+            <span style={{ fontSize: "11px", color: "#71809D" }}>— Agent runtime is idle. Awaiting next mission dispatch.</span>
           </div>
-          <div className="px-2.5 py-1 rounded bg-[#02030a]/80 border border-[#6e8cff]/20">
-            ACTIVE RUNTIMES: <b className="text-[#5ff0a0]">
-              {agents.filter((a) => a.id === activeTaskAgentId || a.status === "EXECUTING").length || 1}
-            </b>
-          </div>
+          <UltronStatus status="READY" label="IDLE" size="sm" />
         </div>
-      </div>
-
-      {/* Main 2-Column Split: Agents Grid (Left) + Selected Agent Inspector (Right) */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-2 min-h-0 overflow-hidden">
-        {/* Left Column (8 cols): The 10 Specialists Cards */}
-        <div className="lg:col-span-8 holo-panel flex flex-col p-3 min-h-0 overflow-hidden">
-          <div className="panel-title pb-2 mb-2 border-b border-[#6e8cff]/15 shrink-0">
-            REGISTERED SPECIALISTS <span>10 ROLES DEFINED</span>
+      ) : (
+        <div
+          style={{
+            padding: "8px 12px",
+            borderRadius: "6px",
+            background: "rgba(99, 232, 255, 0.08)",
+            border: "1px solid rgba(99, 232, 255, 0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "12px", fontWeight: 700, color: "#63E8FF" }}>ACTIVE DISPATCH IN PROGRESS</span>
+            <span style={{ fontSize: "11px", color: "#C9D5EA" }}>
+              Running: {runningAgents.map((a) => a.name).join(", ")}
+            </span>
           </div>
+          <UltronStatus status="RUNNING" size="sm" />
+        </div>
+      )}
 
-          <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-2 pr-1">
+      {/* Main Grid: Agent Registry List + Detailed Inspector */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "10px", flex: 1, minHeight: 0 }}>
+        {/* Agent Registry Cards */}
+        <UltronPanel title="AGENT REGISTRY" subtitle="All Verified Specialists">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: "8px",
+              overflowY: "auto",
+              maxHeight: "100%",
+              paddingRight: "4px",
+            }}
+          >
             {agents.map((agent) => {
               const isSelected = selectedAgent.id === agent.id;
               const isRunning = agent.id === activeTaskAgentId || agent.status === "EXECUTING";
-              const displayStatus: string = isRunning ? "RUNNING" : agent.status || "IDLE";
+              const status: UltronStatusType = isRunning ? "RUNNING" : "ONLINE";
 
               return (
                 <div
                   key={agent.id}
                   onClick={() => setSelectedAgent(agent)}
-                  className={`p-2.5 rounded border cursor-pointer transition-all flex flex-col justify-between ${
-                    isSelected
-                      ? "bg-[#63e8ff]/10 border-[#63e8ff] shadow-[0_0_12px_rgba(99,232,255,0.15)]"
-                      : "bg-[#030615]/70 border-[#6e8cff]/15 hover:border-[#6e8cff]/35"
-                  }`}
+                  style={{
+                    padding: "10px",
+                    borderRadius: "6px",
+                    background: isSelected ? "rgba(99, 232, 255, 0.08)" : "rgba(105, 150, 255, 0.03)",
+                    border: isSelected ? "1px solid rgba(99, 232, 255, 0.40)" : "1px solid rgba(105, 150, 255, 0.12)",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                    transition: "all 0.15s ease",
+                  }}
                 >
-                  <div>
-                    {/* Header: Avatar, Name, Status */}
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[8px] text-white border"
-                          style={{
-                            backgroundColor: agent.avatarColor || "rgba(99,232,255,0.2)",
-                            borderColor: "rgba(110,140,255,0.4)",
-                          }}
-                        >
-                          {agent.name.slice(0, 1)}
-                        </div>
-                        <div>
-                          <b className="text-[10px] text-[#dce4f5] block leading-tight">
-                            {agent.name.toUpperCase()}
-                          </b>
-                          <span className="text-[6px] text-[#8d9ab5] uppercase tracking-wider">
-                            {agent.role}
-                          </span>
-                        </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: isSelected ? "#63E8FF" : "#EAF2FF" }}>
+                        {agent.name.toUpperCase()}
                       </div>
-
-                      <span
-                        className={`text-[6px] px-1.5 py-0.2 rounded font-bold uppercase font-mono ${
-                          displayStatus === "RUNNING"
-                            ? "bg-[#63e8ff]/20 text-[#63e8ff] border border-[#63e8ff]/40 animate-pulse"
-                            : displayStatus === "VERIFYING"
-                            ? "bg-[#8d75ff]/20 text-[#8d75ff] border border-[#8d75ff]/40"
-                            : "bg-zinc-800 text-zinc-400"
-                        }`}
-                      >
-                        {displayStatus}
-                      </span>
+                      <div style={{ fontSize: "10px", color: "#71809D" }}>
+                        {agent.role}
+                      </div>
                     </div>
-
-                    {/* Agent Details */}
-                    <p className="text-[7px] text-[#8d9ab5] line-clamp-2 mb-2 leading-relaxed">
-                      {agent.systemPrompt.slice(0, 110)}...
-                    </p>
+                    <UltronStatus status={status} label={isRunning ? "RUNNING" : "READY"} size="sm" />
                   </div>
 
-                  {/* Metadata Row */}
-                  <div className="pt-1.5 border-t border-[#6e8cff]/10 flex items-center justify-between text-[6px] font-mono text-[#5d6985]">
-                    <span>DOMAIN: <b className="text-[#8d75ff]">{agent.domain}</b></span>
-                    <span>TOOLS: <b className="text-[#63e8ff]">{agent.allowedTools.length}</b></span>
-                    <span>RISK: <b className="text-[#ffd166]">{agent.riskLevel}</b></span>
+                  <div style={{ fontSize: "10px", color: "#AAB8D4", lineHeight: 1.3 }}>
+                    {agent.systemPrompt.slice(0, 75)}...
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "auto",
+                      paddingTop: "6px",
+                      borderTop: "1px solid rgba(105, 150, 255, 0.08)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontSize: "9px",
+                      color: "#71809D",
+                    }}
+                  >
+                    <span>ID: {agent.id}</span>
+                    <span style={{ color: "#63E8FF" }}>{agent.allowedTools?.length || 0} Tools</span>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        </UltronPanel>
 
-        {/* Right Column (4 cols): Agent Deep Inspector */}
-        <div className="lg:col-span-4 holo-panel flex flex-col p-3 min-h-0 overflow-hidden">
-          <div className="panel-title pb-2 mb-2 border-b border-[#6e8cff]/15 shrink-0">
-            SPECIALIST CONTRACT <span>{selectedAgent.name.toUpperCase()}</span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-            <div>
-              <div className="text-[7px] text-[#5d6985] font-mono uppercase mb-0.5">ROLE SPECIFICATION</div>
-              <div className="text-[9px] font-bold text-[#dce4f5]">{selectedAgent.role}</div>
-              <div className="text-[7px] text-[#8d9ab5] mt-0.5 font-mono">DOMAIN: {selectedAgent.domain}</div>
+        {/* Selected Agent Inspector (Section 20: Name, Role, Status, Current task, Last run, Permissions) */}
+        <UltronPanel
+          title={selectedAgent.name.toUpperCase()}
+          subtitle="Agent Specification"
+          badge={<UltronStatus status="ONLINE" label="READY" size="sm" />}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", overflowY: "auto" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "10px", color: "#8FA3C5", textTransform: "uppercase" }}>ROLE</span>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#EAF2FF" }}>{selectedAgent.role}</span>
             </div>
 
-            <div>
-              <div className="text-[7px] text-[#5d6985] font-mono uppercase mb-0.5">SYSTEM CONTRACT PROMPT</div>
-              <div className="p-2 rounded bg-[#02030a] border border-[#6e8cff]/15 text-[7px] text-[#8d9ab5] leading-relaxed font-mono max-h-36 overflow-y-auto">
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "10px", color: "#8FA3C5", textTransform: "uppercase" }}>STATUS</span>
+              <div>
+                <UltronStatus
+                  status={selectedAgent.id === activeTaskAgentId ? "RUNNING" : "ONLINE"}
+                  label={selectedAgent.id === activeTaskAgentId ? "RUNNING" : "STANDBY"}
+                  size="sm"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "10px", color: "#8FA3C5", textTransform: "uppercase" }}>CURRENT TASK</span>
+              <span style={{ fontSize: "11px", color: selectedAgent.id === activeTaskAgentId ? "#63E8FF" : "#AAB8D4" }}>
+                {selectedAgent.id === activeTaskAgentId ? "Active DAG execution node" : "None (Awaiting mission assignment)"}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "10px", color: "#8FA3C5", textTransform: "uppercase" }}>LAST RUN</span>
+              <span style={{ fontSize: "11px", color: "#C9D5EA", fontFamily: "var(--font-mono)" }}>
+                Verified in session cycle
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "10px", color: "#8FA3C5", textTransform: "uppercase" }}>PERMISSIONS</span>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#5FF0A0",
+                  padding: "6px 8px",
+                  borderRadius: "4px",
+                  background: "rgba(95, 240, 160, 0.05)",
+                  border: "1px solid rgba(95, 240, 160, 0.15)",
+                }}
+              >
+                {getAgentPermissions(selectedAgent)}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "10px", color: "#8FA3C5", textTransform: "uppercase" }}>BOUNDED PROMPT</span>
+              <div
+                style={{
+                  fontSize: "10px",
+                  color: "#AAB8D4",
+                  padding: "8px",
+                  borderRadius: "4px",
+                  background: "rgba(4, 7, 18, 0.9)",
+                  border: "1px solid rgba(105, 150, 255, 0.15)",
+                  lineHeight: 1.4,
+                  maxHeight: "140px",
+                  overflowY: "auto",
+                }}
+              >
                 {selectedAgent.systemPrompt}
               </div>
             </div>
-
-            <div>
-              <div className="text-[7px] text-[#5d6985] font-mono uppercase mb-1">AUTHORIZED MCP CAPABILITIES</div>
-              <div className="flex flex-wrap gap-1">
-                {selectedAgent.allowedTools.map((tool) => (
-                  <span
-                    key={tool}
-                    className="text-[6px] font-mono px-1.5 py-0.5 rounded bg-[#63e8ff]/10 text-[#63e8ff] border border-[#63e8ff]/25"
-                  >
-                    {tool}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="text-[7px] text-[#5d6985] font-mono uppercase mb-1">AGENT METRICS & GOVERNANCE</div>
-              <div className="p-2 rounded bg-[#02030a] border border-[#6e8cff]/15 space-y-1 text-[7px] font-mono">
-                <div className="flex justify-between text-[#8d9ab5]">
-                  <span>RISK LEVEL:</span>
-                  <b className="text-[#5ff0a0]">{selectedAgent.riskLevel}</b>
-                </div>
-                <div className="flex justify-between text-[#8d9ab5]">
-                  <span>SUCCESS RATE:</span>
-                  <b className="text-[#ffd166]">{((selectedAgent.metrics?.successRate ?? 0.96) * 100).toFixed(0)}%</b>
-                </div>
-                <div className="flex justify-between text-[#8d9ab5]">
-                  <span>COMPLETED TASKS:</span>
-                  <b className="text-[#dce4f5]">{selectedAgent.metrics?.totalTasksCompleted ?? 0}</b>
-                </div>
-              </div>
-            </div>
           </div>
-        </div>
+        </UltronPanel>
       </div>
     </div>
   );
