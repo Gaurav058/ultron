@@ -12,26 +12,41 @@ body {
 }
 
 :root {
-  /* ULTRON Infinity Design Tokens */
-  --ultron-bg: #02030a;
-  --ultron-bg-surface: #030511;
-  --ultron-bg-cosmic: #050817;
-  --ultron-panel: rgba(8, 12, 30, 0.65);
-  --ultron-panel-strong: rgba(10, 16, 42, 0.85);
-  --ultron-cyan: #00d9ff;
-  --ultron-cyan-glow: rgba(0, 217, 255, 0.4);
-  --ultron-violet: #6d4aff;
-  --ultron-violet-glow: rgba(109, 74, 255, 0.4);
-  --ultron-magenta: #d84cff;
-  --ultron-gold: #ffaa30;
-  --ultron-gold-glow: rgba(255, 170, 48, 0.4);
-  --ultron-text: #e6edf8;
-  --ultron-text-muted: #8493b2;
-  --ultron-border: rgba(0, 217, 255, 0.2);
-  --ultron-border-violet: rgba(109, 74, 255, 0.25);
-  --font-display: 'Orbitron', 'Space Grotesk', sans-serif;
+  /* ULTRON Unified Design Tokens */
+  --ultron-bg: #02030A;
+  --ultron-bg-secondary: #050817;
+
+  --ultron-panel: rgba(6, 9, 24, .78);
+  --ultron-panel-hover: rgba(12, 16, 38, .88);
+
+  --ultron-border: rgba(110, 140, 255, .20);
+
+  --ultron-text: #DCE4F5;
+  --ultron-text-secondary: #8D9AB5;
+  --ultron-muted: #5D6985;
+
+  --ultron-cyan: #63E8FF;
+  --ultron-violet: #8D75FF;
+  --ultron-magenta: #C56CFF;
+
+  --ultron-success: #5FF0A0;
+  --ultron-warning: #FFD166;
+  --ultron-error: #FF667A;
+
+  /* Aliases for UI classes */
+  --bg: var(--ultron-bg);
+  --panel: var(--ultron-panel);
+  --panel2: var(--ultron-panel-hover);
+  --cyan: var(--ultron-cyan);
+  --violet: var(--ultron-violet);
+  --magenta: var(--ultron-magenta);
+  --text: var(--ultron-text);
+  --muted: var(--ultron-muted);
+  --line: var(--ultron-border);
+
+  --font-display: 'Inter', 'SF Pro Display', 'Space Grotesk', sans-serif;
   --font-body: 'Inter', -apple-system, sans-serif;
-  --font-tech: 'Rajdhani', monospace;
+  --font-tech: 'Inter', 'SF Pro Display', sans-serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
   /* Legacy Backward Compatibility Tokens */
@@ -1162,6 +1177,25 @@ body {
   z-index: 2;
 }
 
+.module-deck {
+  height: 75vh;
+  display: grid;
+  grid-template-columns: minmax(88px, 7.4vw) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 1.4vw 0;
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.module-content {
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .holo-panel {
   background: linear-gradient(145deg, rgba(8, 13, 34, 0.80), rgba(3, 7, 21, 0.66));
   border: 1px solid var(--line);
@@ -1805,18 +1839,31 @@ body {
 }
 
 /* Real Central ULTRON Entity Artwork */
+.ultron-core-art,
 .ultron-reference-art {
-  position: absolute;
-  inset: -5% -3%;
-  width: 106%;
-  height: 110%;
-  object-fit: cover;
+  width: min(72vw, 900px);
+  max-width: 100%;
+  height: auto;
+  max-height: 85%;
+  object-fit: contain;
   mix-blend-mode: screen;
-  filter: saturate(1.08) contrast(1.05);
-  opacity: 0.98;
+  filter:
+    drop-shadow(0 0 25px rgba(99, 232, 255, 0.18))
+    drop-shadow(0 0 55px rgba(141, 117, 255, 0.14));
+  mask-image:
+    radial-gradient(
+      ellipse at center,
+      black 55%,
+      transparent 100%
+    );
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse at center,
+      black 55%,
+      transparent 100%
+    );
+  pointer-events: none;
   z-index: 2;
-  mask-image: radial-gradient(ellipse at center, black 58%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse at center, black 58%, transparent 100%);
 }
 
 .infinity-core:after {
