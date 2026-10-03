@@ -1,13 +1,22 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import NavigationRail, { PillarNavId } from "./NavigationRail";
-import TopSystemBar from "./TopSystemBar";
-import RightIntelligenceRail from "./RightIntelligenceRail";
-import InfinityCore, { UltronCoreState } from "./InfinityCore";
-import LowerTelemetryDeck from "./LowerTelemetryDeck";
-import BottomCommandBar from "./BottomCommandBar";
-import StatusBar from "./StatusBar";
+import dynamic from "next/dynamic";
+import UltronHeader from "../layout/UltronHeader";
+import IconNavRail, { NavItemKey } from "../layout/IconNavRail";
+import MissionsAndChatPanel from "../missions/MissionsAndChatPanel";
+import AgentWorkflowPipeline from "../workflow/AgentWorkflowPipeline";
+import LiveActivityPanel, { ActivityFeedItem } from "../activity/LiveActivityPanel";
+import SystemHealthPanel from "../system/SystemHealthPanel";
+import UltronOraclePanel from "../oracle/UltronOraclePanel";
+import GlobalNewsPanel from "../news/GlobalNewsPanel";
+import UltronCommandBar from "../command/UltronCommandBar";
+
+const GlobalIntelligenceGlobe = dynamic(
+  () => import("../globe/GlobalIntelligenceGlobe"),
+  { ssr: false }
+);
+
 import MissionsModule from "./modules/MissionsModule";
 import BrainModule from "./modules/BrainModule";
 import AgentsModule from "./modules/AgentsModule";
@@ -15,170 +24,212 @@ import ToolsModule from "./modules/ToolsModule";
 import WorldModule from "./modules/WorldModule";
 import SystemModule from "./modules/SystemModule";
 import ApprovalModal from "../deck/ApprovalModal";
+
 import { Mission, PolicyGate } from "../../core/types/mission";
 import { MissionManager } from "../../core/missions/missionManager";
-import { MemoryEngine } from "../../core/memory/memoryEngine";
 import { RealityChecker } from "../../core/verification/realityChecker";
 import { UltronDoctor } from "../../core/runtime/ultronDoctor";
 import { UltronEventBus, UltronEvent } from "../../core/events/eventBus";
 import { UltronVoiceEngine } from "@/lib/voiceEngine";
 
+import { MissionItem, ChatMessage } from "@/types/mission";
+import { WorkflowNode } from "@/types/workflow";
+import { SelectedLocation } from "@/types/location";
+import { NewsStory } from "@/types/news";
+import { SystemStatus } from "@/types/system";
+
+import {
+  DEMO_MISSIONS,
+  DEMO_CHAT_MESSAGES,
+  DEMO_WORKFLOW_NODES,
+  DEMO_NEWS_STORIES,
+  DEMO_LOCATION_DUBAI,
+  DEMO_SYSTEM_STATUS,
+  DEMO_SYSTEM_INFO,
+} from "@/lib/demo/ultronDemoData";
+
 export interface UltronShellProps {
-  initialModule?: PillarNavId;
+  initialModule?: string;
 }
 
 export default function UltronShell({ initialModule = "CORE" }: UltronShellProps) {
-  const [activeModule, setActiveModule] = useState<PillarNavId>(initialModule);
-  const [coreState, setCoreState] = useState<UltronCoreState>("IDLE");
-  const [time, setTime] = useState(new Date());
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
+  // Navigation State
+  const [activeNav, setActiveNav] = useState<NavItemKey>(
+    initialModule.toLowerCase() as NavItemKey || "home"
+  );
+
+  // Backend Missions State
+  const [backendMissions, setBackendMissions] = useState<Mission[]>([]);
+  const [activeMissionId, setActiveMissionId] = useState<string>("mission-1");
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [selectedGate, setSelectedGate] = useState<PolicyGate | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [totalEventsCount, setTotalEventsCount] = useState(4);
 
-  // Live Activity Stream (Section 15: timestamp, event, source, status)
-  const [activityFeed, setActivityFeed] = useState<
-    { timestamp: string; source: string; event: string; status: string }[]
-  >([
-    {
-      timestamp: "16:21:08",
-      source: "SYSTEM",
-      event: "Core initialized & Cognitive Loop synchronized",
-      status: "ONLINE",
-    },
-    {
-      timestamp: "16:21:11",
-      source: "DEVICE",
-      event: "Primary Desktop connected to Sovereign Enclave",
-      status: "ONLINE",
-    },
-    {
-      timestamp: "16:21:14",
-      source: "MEMORY",
-      event: "5 Vector memory nodes indexed into durable store",
-      status: "ONLINE",
-    },
-    {
-      timestamp: "16:21:18",
-      source: "REALITY",
-      event: "Verified 4 empirical integrity gates (100% Pass)",
-      status: "ONLINE",
-    },
+  // Conversational Chat Stream
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(DEMO_CHAT_MESSAGES);
+
+  // Workflow Graph Nodes State
+  const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>(DEMO_WORKFLOW_NODES);
+
+  // Global Intelligence & News State
+  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation>(DEMO_LOCATION_DUBAI);
+  const [newsStories] = useState<NewsStory[]>(DEMO_NEWS_STORIES);
+
+  // Activity Feed
+  const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([
+    { timestamp: "10:42", source: "Researcher", event: "Fetched 12 sources", status: "ONLINE" },
+    { timestamp: "10:38", source: "Analyst", event: "Completed analysis", status: "ONLINE" },
+    { timestamp: "10:32", source: "Conductor", event: "Mission created", status: "ONLINE" },
+    { timestamp: "10:21", source: "Memory", event: "Stored 5 new facts", status: "ONLINE" },
+    { timestamp: "10:18", source: "Web Search", event: "Results retrieved", status: "ONLINE" },
+    { timestamp: "10:12", source: "Agent", event: "Updated status", status: "ONLINE" },
   ]);
 
-  // System Diagnostics State
+  // System Health & Diagnostics
+  const [systemStatus, setSystemStatus] = useState<SystemStatus>(DEMO_SYSTEM_STATUS);
+  const [activeModel, setActiveModel] = useState<string>("Gemini 1.5 Pro");
   const [doctorHealth, setDoctorHealth] = useState<string>("OPTIMAL");
-  const [modelAccuracy, setModelAccuracy] = useState<string>("96.4%");
-  const [latestResponse, setLatestResponse] = useState<string>(
-    "ULTRON intelligence engine synchronized with Gemini API. Ready for autonomous missions, research, code synthesis, or operator commands."
-  );
-  const [activeModel, setActiveModel] = useState<string>("gemini-3.5-flash");
 
-  // Live Clock updater
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  // Initialize and subscribe to MissionManager
+  // Initialize MissionManager & Check Health
   useEffect(() => {
     MissionManager.initialize();
-    const unsubscribe = MissionManager.subscribe((updatedMissions) => {
-      setMissions(updatedMissions);
-      if (updatedMissions.length > 0 && !activeMissionId) {
-        setActiveMissionId(updatedMissions[0].id);
-      }
+    const unsubscribe = MissionManager.subscribe((updated) => {
+      setBackendMissions(updated);
     });
 
+    // Check Gemini API Health
+    fetch("/api/health/gemini")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.configured && data.model) {
+          setActiveModel(data.model);
+          setSystemStatus((prev) => ({ ...prev, api: "online" }));
+        }
+      })
+      .catch(() => {
+        setSystemStatus((prev) => ({ ...prev, api: "offline" }));
+      });
+
+    // Run Doctor Diagnostics
     UltronDoctor.runDiagnostics().then((report) => {
       setDoctorHealth(report.overallHealth === "HEALTHY" ? "OPTIMAL" : report.overallHealth);
     });
 
     return unsubscribe;
-  }, [activeMissionId]);
+  }, []);
 
-  // Subscribe to Unified Event Bus (Section 25)
+  // Subscribe to Unified Event Bus
   useEffect(() => {
-    const unsubscribeEventBus = UltronEventBus.subscribe("*", (evt: UltronEvent) => {
-      setTotalEventsCount((c) => c + 1);
-
+    const unsubscribe = UltronEventBus.subscribe("*", (evt: UltronEvent) => {
       const timeStr = new Date(evt.timestamp).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
-        second: "2-digit",
+        hour12: false,
       });
 
       let statusBadge = "ONLINE";
       if (evt.type.includes("ERROR") || evt.type.includes("FAILED")) statusBadge = "ERROR";
       else if (evt.type.includes("APPROVAL")) statusBadge = "WARN";
-      else if (evt.type.includes("PAUSED")) statusBadge = "STANDBY";
-      else if (evt.type.includes("VOICE")) statusBadge = "VOICE";
 
       setActivityFeed((prev) => [
         {
           timestamp: timeStr,
-          source: evt.source,
+          source: evt.source || "Agent",
           event: evt.summary,
           status: statusBadge,
         },
         ...prev.slice(0, 15),
       ]);
 
-      // If a mission was created by voice, make sure it is reflected immediately
-      if (evt.type === "MISSION_CREATED" && evt.payload?.missionId) {
-        setActiveMissionId(evt.payload.missionId);
+      // If tool or agent started, reflect dynamically in workflow nodes
+      if (evt.type === "TOOL_STARTED") {
+        setWorkflowNodes((nodes) =>
+          nodes.map((n) =>
+            n.id === "node-websearch"
+              ? { ...n, status: "running" }
+              : n
+          )
+        );
+      } else if (evt.type === "TOOL_COMPLETED") {
+        setWorkflowNodes((nodes) =>
+          nodes.map((n) =>
+            n.id === "node-websearch"
+              ? { ...n, status: "completed" }
+              : n
+          )
+        );
       }
     });
 
-    return unsubscribeEventBus;
+    return unsubscribe;
   }, []);
 
-  const activeMission = missions.find((m) => m.id === activeMissionId) || missions[0];
-
-  // Core State Engine reaction to real system states
-  useEffect(() => {
-    if (!activeMission) {
-      setCoreState("IDLE");
-    } else if (activeMission.status === "RUNNING") {
-      setCoreState("EXECUTING");
-    } else if (activeMission.status === "AWAITING_APPROVAL") {
-      setCoreState("WAITING");
-    } else if (activeMission.status === "VERIFYING") {
-      setCoreState("VERIFYING");
-    } else if (activeMission.status === "COMPLETED") {
-      setCoreState("SUCCESS");
-    } else if (activeMission.status === "FAILED") {
-      setCoreState("FAILED");
-    } else {
-      setCoreState("IDLE");
+  // Combined UI Missions: map backend missions or fallback to DEMO_MISSIONS
+  const uiMissions: MissionItem[] = useMemo(() => {
+    if (backendMissions.length === 0) {
+      return DEMO_MISSIONS;
     }
-  }, [activeMission]);
 
-  // Handle module navigation & update browser history
-  const handleSelectModule = (mod: PillarNavId) => {
-    setActiveModule(mod);
-    const targetPath = mod === "CORE" ? "/" : `/${mod.toLowerCase()}`;
-    if (typeof window !== "undefined" && window.location.pathname !== targetPath) {
-      window.history.pushState(null, "", targetPath);
-    }
-  };
+    const mapped = backendMissions.map((bm): MissionItem => {
+      const totalTasks = bm.tasks.length || 1;
+      const completedTasks = bm.tasks.filter((t) => t.status === "COMPLETED").length;
+      const progress = Math.round((completedTasks / totalTasks) * 100);
 
-  // Submit Intent: Connects to Live Gemini API & Tool Execution Kernel
+      let status: MissionItem["status"] = "queued";
+      if (bm.status === "RUNNING") status = "running";
+      else if (bm.status === "COMPLETED") status = "completed";
+      else if (bm.status === "FAILED") status = "failed";
+      else if (bm.status === "AWAITING_APPROVAL") status = "waiting";
+
+      return {
+        id: bm.id,
+        title: bm.title,
+        description: bm.objective,
+        status,
+        progress,
+        createdAt: bm.createdAt,
+        updatedAt: bm.updatedAt,
+        timeAgo: "Just now",
+      };
+    });
+
+    // Merge backend missions at top, followed by demo reference items
+    const backendIds = new Set(mapped.map((m) => m.id));
+    const extraDemos = DEMO_MISSIONS.filter((dm) => !backendIds.has(dm.id));
+    return [...mapped, ...extraDemos];
+  }, [backendMissions]);
+
+  // Handle Command Submission -> POST /api/voice/chat
   const handleCommandSubmit = async (commandText: string) => {
     if (!commandText.trim()) return;
 
     setIsProcessing(true);
-    setCoreState("THINKING");
 
-    UltronEventBus.publish("SYSTEM_STATE_CHANGED", "USER", `Directing command to Gemini kernel: "${commandText.slice(0, 42)}..."`);
+    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const userMsgId = `chat-u-${Date.now()}`;
+    const newChat: ChatMessage = {
+      id: userMsgId,
+      sender: "user",
+      text: commandText,
+      timestamp: now,
+    };
+
+    setChatMessages((prev) => [...prev, newChat]);
+
+    UltronEventBus.publish(
+      "SYSTEM_STATE_CHANGED",
+      "USER",
+      `Directing intent to Gemini kernel: "${commandText.slice(0, 38)}..."`
+    );
 
     try {
       const res = await fetch("/api/voice/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: commandText, sessionId: "ultron-desktop-session" }),
+        body: JSON.stringify({
+          message: commandText,
+          sessionId: "ultron-desktop-session",
+        }),
       });
 
       if (!res.ok) {
@@ -186,275 +237,288 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
       }
 
       const data = await res.json();
-      const replyText = data.text || "Command processed.";
-      setLatestResponse(replyText);
-      if (data.model) {
-        setActiveModel(data.model);
-      }
+      const replyText = data.text || "Command processed successfully.";
+      if (data.model) setActiveModel(data.model);
+
+      let createdMissionId: string | undefined;
 
       // Process actions / tools executed by Gemini
       if (data.actions && data.actions.length > 0) {
-        setCoreState("EXECUTING");
         for (const action of data.actions) {
           const toolName = action.name || action.toolName;
           UltronEventBus.publish("TOOL_STARTED", "AGENT", `Executed Gemini tool: ${toolName}`);
 
-          // If create_mission was called, select the mission
           if (toolName === "create_mission" && action.result?.missionId) {
-            setActiveMissionId(action.result.missionId);
+            createdMissionId = action.result.missionId;
+            if (createdMissionId) {
+              setActiveMissionId(createdMissionId);
+            }
           }
           UltronEventBus.publish("TOOL_COMPLETED", "TOOL", `Completed ${toolName}`);
         }
       }
 
-      // Sync missions state with MissionManager
-      const updatedMissions = MissionManager.getMissions();
-      setMissions(updatedMissions);
-      if (updatedMissions.length > 0 && !activeMissionId) {
-        setActiveMissionId(updatedMissions[0].id);
-      }
-
-      // Reality Checker audit
-      const targetMission = updatedMissions.find((m) => m.id === activeMissionId) || updatedMissions[0];
-      if (targetMission) {
-        const report = RealityChecker.auditMission(targetMission);
-        const passedCount = report.assertions.filter((a) => a.status === "PASSED").length;
-        const passRate = report.assertions.length > 0 ? passedCount / report.assertions.length : 1;
-        setModelAccuracy(`${Math.round(passRate * 100)}%`);
-      }
+      // Add Ultron response message to chat stream
+      const botMsgId = `chat-b-${Date.now()}`;
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: botMsgId,
+          sender: "ultron",
+          text: replyText,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          badge: createdMissionId ? "Mission Created" : undefined,
+          missionId: createdMissionId,
+        },
+      ]);
 
       // Speak response through voice engine
       try {
         UltronVoiceEngine.getInstance().speak(replyText);
       } catch {}
 
-      setCoreState("READY");
-    } catch (error: any) {
-      console.warn("API call notice; fallback execution:", error?.message);
-      // Fallback local mission creation if offline
-      const newMission = MissionManager.createMission(commandText);
-      setActiveMissionId(newMission.id);
-      setMissions(MissionManager.getMissions());
-      setLatestResponse(`Executed command: "${commandText}". Mission [${newMission.id}] compiled.`);
-      setCoreState("READY");
+      // Refresh MissionManager state
+      setBackendMissions(MissionManager.getMissions());
+    } catch (err: any) {
+      console.warn("API notice; executing local fallback:", err?.message);
+      // Fallback: create local mission
+      const localMission = MissionManager.createMission(commandText);
+      setActiveMissionId(localMission.id);
+      setBackendMissions(MissionManager.getMissions());
+
+      const botMsgId = `chat-b-${Date.now()}`;
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: botMsgId,
+          sender: "ultron",
+          text: `Mission initialized: "${commandText}". Autonomous pipeline compiled.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          badge: "Mission Created",
+          missionId: localMission.id,
+        },
+      ]);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const pendingGates = useMemo(
-    () => missions.flatMap((m) => m.approvalQueue.filter((g) => g.status === "PENDING")),
-    [missions]
-  );
-
-  const handleOpenApprovals = (gate?: PolicyGate) => {
-    if (gate) {
-      setSelectedGate(gate);
-      setShowApprovalModal(true);
-    } else if (pendingGates.length > 0) {
-      setSelectedGate(pendingGates[0]);
-      setShowApprovalModal(true);
+  // Handle News Item Click -> Update Globe & Location Details
+  const handleSelectNewsStory = (story: NewsStory) => {
+    if (story.latitude !== undefined && story.longitude !== undefined) {
+      setSelectedLocation({
+        latitude: story.latitude,
+        longitude: story.longitude,
+        city: story.location?.split(",")[0] || "Global Zone",
+        country: story.location?.split(",")[1]?.trim() || "Earth",
+        weather: {
+          temperature: "28°C",
+          condition: "Clear",
+        },
+        insights: [
+          `News Signal: ${story.title}`,
+          `Source: ${story.source} (${story.publishedAt})`,
+          "Regional intelligence telemetry active",
+        ],
+        cameraStatus: "NO_AUTHORIZED_SOURCES",
+      });
     }
   };
 
+  // Approval Gates Handling
   const handleApproveGate = (gateId: string) => {
-    if (!activeMission) return;
-    MissionManager.approveGate(activeMission.id, gateId);
+    if (activeBackendMission) {
+      MissionManager.approveGate(activeBackendMission.id, gateId);
+      setBackendMissions(MissionManager.getMissions());
+    }
     setShowApprovalModal(false);
+    setSelectedGate(null);
   };
 
-  const handleDenyGate = (gateId: string) => {
-    if (!activeMission) return;
-    const gate = activeMission.approvalQueue.find((g) => g.id === gateId);
-    if (gate) {
-      gate.status = "DENIED";
-      setShowApprovalModal(false);
+  const handleDenyGate = (_gateId: string) => {
+    setShowApprovalModal(false);
+    setSelectedGate(null);
+  };
+
+  const handleNewMission = () => {
+    const name = prompt("Enter objective for new ULTRON Mission:");
+    if (name) {
+      handleCommandSubmit(name);
     }
   };
+
+  const activeBackendMission =
+    backendMissions.find((m) => m.id === activeMissionId) || backendMissions[0];
 
   return (
     <div
-      className="ultron-shell-root"
+      className="ultron-os-bg"
       style={{
+        width: "100vw",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
-        width: "100vw",
         overflow: "hidden",
-        background: "var(--ultron-bg)",
-        color: "var(--ultron-text-primary)",
+        color: "#C8D8EA",
         fontFamily: "var(--ultron-font)",
-        position: "relative",
       }}
     >
-      {/* 1. TOP BAR (Section 4 & 8) */}
-      <TopSystemBar
-        coreStatus={coreState}
-        doctorHealth={doctorHealth}
-        time={time}
-        onOpenApprovals={() => handleOpenApprovals()}
-        pendingGatesCount={pendingGates.length}
+      {/* 1. TOP HEADER (60px) */}
+      <UltronHeader
+        systemStatus={systemStatus.api === "online" ? "online" : "degraded"}
+        operatorName="GAURAV"
+        operatorRole="PRIME USER"
       />
 
-      {/* 2. ULTRON LAYOUT (Section 4) */}
+      {/* 2. MAIN WORKSPACE */}
       <div
-        className="ultron-layout"
         style={{
-          display: "flex",
           flex: 1,
-          minHeight: 0,
+          display: "flex",
           overflow: "hidden",
-          position: "relative",
+          padding: "10px 12px 6px 12px",
+          gap: "10px",
         }}
       >
-        {/* Navigation Rail (Section 4 & 9) */}
-        <div style={{ width: "160px", flexShrink: 0, height: "100%" }}>
-          <NavigationRail
-            active={activeModule}
-            onSelect={handleSelectModule}
-            missionsCount={missions.length}
-          />
-        </div>
+        {/* Leftmost Vertical Icon Navigation Rail */}
+        <IconNavRail
+          activeItem={activeNav}
+          onSelect={(item) => setActiveNav(item)}
+        />
 
-        {/* Main Viewport (Section 4) */}
-        <main
-          className="ultron-viewport"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {activeModule === "CORE" ? (
+        {/* View Switch: HOME (Primary Command Center matching reference image) */}
+        {activeNav === "home" ? (
+          <>
+            {/* LEFT COLUMN: Missions & Chat */}
+            <MissionsAndChatPanel
+              missions={uiMissions}
+              activeMissionId={activeMissionId}
+              onSelectMission={(id) => setActiveMissionId(id)}
+              onNewMission={handleNewMission}
+              chatMessages={chatMessages}
+              onSendMessage={handleCommandSubmit}
+              isProcessing={isProcessing}
+            />
+
+            {/* CENTER COLUMN: Workflow Pipeline (Upper) + Global Intelligence & Telemetry (Lower) */}
             <div
-              className="core-command-center"
               style={{
+                flex: "1 1 0%",
+                minWidth: "580px",
                 display: "flex",
                 flexDirection: "column",
-                flex: 1,
-                minHeight: 0,
-                overflow: "hidden",
                 gap: "10px",
-                padding: "8px 1.4vw 0",
+                overflow: "hidden",
               }}
             >
-              {/* Upper Section: Center Stage + Right Intelligence Rail */}
+              {/* Center Upper: AGENT WORKFLOW PIPELINE */}
+              <AgentWorkflowPipeline
+                nodes={workflowNodes}
+                metrics={{
+                  totalAgents: 10,
+                  activeTasks: 3,
+                  completedToday: 12,
+                  systemLoad: "Normal",
+                }}
+              />
+
+              {/* Center Lower: 3-Way Split (Global Intelligence + Live Activity + System Health) */}
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 340px",
+                  flex: "1 1 0%",
+                  minHeight: "260px",
+                  display: "flex",
                   gap: "10px",
-                  flex: 1,
-                  minHeight: 0,
                   overflow: "hidden",
                 }}
               >
-                {/* Center Stage: ULTRON CORE with Cognitive Loop & Core State (Section 2 & 6) */}
-                <div style={{ minWidth: 0, height: "100%", overflowY: "auto" }}>
-                  <InfinityCore
-                    status={coreState}
-                    activeMission={activeMission}
-                    modelAccuracy={modelAccuracy}
-                    thinkingSpeed="184 TPS"
-                    activeContext="84%"
-                    onToggleVoice={() => {}}
-                    onOpenMission={() => handleSelectModule("MISSIONS")}
-                    onCreateMission={() => handleSelectModule("MISSIONS")}
-                    latestResponse={latestResponse}
-                    activeModel={activeModel}
-                  />
-                </div>
-
-                {/* Right Intelligence Rail (Section 4) */}
-                <RightIntelligenceRail
-                  activeMission={activeMission}
-                  pendingGates={pendingGates}
-                  onOpenMissionControl={() => handleSelectModule("MISSIONS")}
-                  onCreateMission={() => handleSelectModule("MISSIONS")}
-                  onSelectAgent={() => handleSelectModule("AGENTS")}
-                  onOpenApprovals={handleOpenApprovals}
+                {/* 3D Earth Globe with Layer Filters */}
+                <GlobalIntelligenceGlobe
+                  selectedLocation={selectedLocation}
+                  onSelectLocation={(loc) => setSelectedLocation(loc)}
                 />
-              </div>
 
-              {/* Lower Section: Live Activity | World Intelligence | System Metrics (Section 2) */}
-              <div style={{ height: "185px", flexShrink: 0 }}>
-                <LowerTelemetryDeck
-                  activityEvents={activityFeed}
-                  doctorHealth={doctorHealth}
+                {/* Live Activity Feed */}
+                <LiveActivityPanel
+                  items={activityFeed}
+                  onViewAll={() => setActiveNav("system")}
                 />
+
+                {/* System Health Checklist */}
+                <SystemHealthPanel status={systemStatus} />
               </div>
             </div>
-          ) : (
+
+            {/* RIGHT COLUMN: Ultron Oracle + Global News */}
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 340px",
+                width: "295px",
+                display: "flex",
+                flexDirection: "column",
                 gap: "10px",
-                flex: 1,
-                minHeight: 0,
+                flexShrink: 0,
                 overflow: "hidden",
-                padding: "8px 1.4vw 0",
               }}
             >
-              {/* Module Content */}
-              <div style={{ minWidth: 0, height: "100%", overflowY: "auto" }}>
-                {activeModule === "MISSIONS" && (
-                  <MissionsModule
-                    missions={missions}
-                    activeMission={activeMission}
-                    onSelectMission={setActiveMissionId}
-                    onOpenApproval={() => handleOpenApprovals()}
-                    onCreateMission={(prompt) => {
-                      const m = MissionManager.createMission(prompt);
-                      setActiveMissionId(m.id);
-                    }}
-                  />
-                )}
-                {activeModule === "BRAIN" && <BrainModule />}
-                {activeModule === "AGENTS" && (
-                  <AgentsModule
-                    activeTaskAgentId={activeMission?.tasks.find((t) => t.status === "RUNNING")?.assignedAgent}
-                  />
-                )}
-                {activeModule === "TOOLS" && <ToolsModule />}
-                {activeModule === "WORLD" && <WorldModule />}
-                {activeModule === "SYSTEM" && <SystemModule />}
-              </div>
+              {/* Upper Right: ULTRON ORACLE */}
+              <UltronOraclePanel
+                quote="The future is not predicted, it's built by those who see it first."
+                author="ULTRON"
+                activeModel={activeModel}
+                systemInfo={DEMO_SYSTEM_INFO}
+              />
 
-              {/* Persistent Right Intelligence Rail across all views */}
-              <RightIntelligenceRail
-                activeMission={activeMission}
-                pendingGates={pendingGates}
-                onOpenMissionControl={() => handleSelectModule("MISSIONS")}
-                onCreateMission={() => handleSelectModule("MISSIONS")}
-                onSelectAgent={() => handleSelectModule("AGENTS")}
-                onOpenApprovals={handleOpenApprovals}
+              {/* Lower Right: GLOBAL NEWS */}
+              <GlobalNewsPanel
+                stories={newsStories}
+                onSelectStory={handleSelectNewsStory}
+                onViewAll={() => alert("All Global News Feeds Synced.")}
               />
             </div>
-          )}
-        </main>
+          </>
+        ) : (
+          /* Secondary Detailed Modules Navigation */
+          <div
+            style={{
+              flex: 1,
+              height: "100%",
+              overflowY: "auto",
+              padding: "4px",
+            }}
+          >
+            {activeNav === "missions" && (
+              <MissionsModule
+                missions={backendMissions}
+                activeMission={activeBackendMission}
+                onSelectMission={setActiveMissionId}
+                onOpenApproval={() => {}}
+                onCreateMission={(prompt) => handleCommandSubmit(prompt)}
+              />
+            )}
+            {activeNav === "brain" && <BrainModule />}
+            {activeNav === "agents" && (
+              <AgentsModule
+                activeTaskAgentId={
+                  activeBackendMission?.tasks.find((t) => t.status === "RUNNING")?.assignedAgent
+                }
+              />
+            )}
+            {activeNav === "tools" && <ToolsModule />}
+            {activeNav === "world" && <WorldModule />}
+            {activeNav === "system" && <SystemModule />}
+          </div>
+        )}
       </div>
 
-      {/* 3. COMMAND BAR (Section 4 & 17) */}
-      <BottomCommandBar
-        onSubmitIntent={handleCommandSubmit}
-        isProcessing={isProcessing}
-      />
+      {/* 3. BOTTOM COMMAND BAR */}
+      <div style={{ padding: "2px 14px 8px 14px" }}>
+        <UltronCommandBar
+          onSubmit={handleCommandSubmit}
+          isProcessing={isProcessing}
+        />
+      </div>
 
-      {/* 4. STATUS BAR (Section 4) */}
-      <StatusBar
-        systemHealth={doctorHealth}
-        connectedDevicesCount={1}
-        activeAgentsCount={10}
-        eventsCount={totalEventsCount}
-        memoryNodesCount={5}
-        securityMode="ZERO-TRUST LEAST PRIVILEGE"
-      />
-
-      {/* Human-in-the-Loop Approval Modal */}
+      {/* Approval Modal for Policy Gates */}
       {showApprovalModal && selectedGate && (
         <ApprovalModal
           gate={selectedGate}

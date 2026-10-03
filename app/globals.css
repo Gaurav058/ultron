@@ -12,29 +12,32 @@ body {
 }
 
 :root {
-  /* Global ULTRON Theme Tokens (Section 3) */
-  --ultron-bg: #02030A;
-  --ultron-bg-secondary: #050817;
+  /* Exact ULTRON OS Design Tokens (Directive Section 2) */
+  --ultron-bg: #020817;
+  --ultron-bg-secondary: #030D1F;
+  --ultron-panel: rgba(6, 19, 41, 0.86);
+  --ultron-panel-solid: #061329;
+  --ultron-panel-2: #08172D;
+  --ultron-panel-hover: #0B1D38;
+  --ultron-border: #0B2A50;
+  --ultron-border-bright: #123F70;
+  --ultron-cyan: #00D9FF;
+  --ultron-blue: #1687FF;
+  --ultron-purple: #7C4DFF;
+  --ultron-green: #00E6A8;
+  --ultron-amber: #FFB020;
+  --ultron-red: #FF4D67;
+  --ultron-white: #EAF4FF;
+  --ultron-text: #C8D8EA;
+  --ultron-muted: #7187A5;
+  --ultron-dim: #435873;
 
-  --ultron-panel: rgba(7, 11, 28, 0.94);
-  --ultron-panel-elevated: rgba(10, 15, 38, 0.97);
+  --ultron-glow-cyan: rgba(0, 217, 255, 0.20);
+  --ultron-glow-blue: rgba(22, 135, 255, 0.18);
+  --ultron-glow-purple: rgba(124, 77, 255, 0.18);
+  --ultron-glow-green: rgba(0, 230, 168, 0.16);
 
-  --ultron-border: rgba(99, 232, 255, 0.22);
-  --ultron-border-active: rgba(99, 232, 255, 0.55);
-
-  --ultron-text-primary: #EAF2FF;
-  --ultron-text-secondary: #A8B5CC;
-  --ultron-text-muted: #6F7E99;
-
-  --ultron-cyan: #63E8FF;
-  --ultron-violet: #8D75FF;
-  --ultron-magenta: #C56CFF;
-
-  --ultron-success: #5FF0A0;
-  --ultron-warning: #FFD166;
-  --ultron-error: #FF667A;
-
-  --ultron-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --ultron-shadow: 0 0 0 1px rgba(0, 217, 255, 0.025), 0 10px 40px rgba(0, 0, 0, 0.30);
 
   --ultron-font:
     Inter,
@@ -49,12 +52,17 @@ body {
   /* Aliases for UI classes */
   --bg: var(--ultron-bg);
   --panel: var(--ultron-panel);
-  --panel2: var(--ultron-panel-elevated);
+  --panel2: var(--ultron-panel-2);
   --cyan: var(--ultron-cyan);
-  --violet: var(--ultron-violet);
-  --magenta: var(--ultron-magenta);
-  --text: var(--ultron-text-primary);
-  --muted: var(--ultron-text-muted);
+  --blue: var(--ultron-blue);
+  --purple: var(--ultron-purple);
+  --violet: var(--ultron-purple);
+  --green: var(--ultron-green);
+  --amber: var(--ultron-amber);
+  --red: var(--ultron-red);
+  --text: var(--ultron-text);
+  --text-white: var(--ultron-white);
+  --muted: var(--ultron-muted);
   --line: var(--ultron-border);
 
   --font-display: var(--ultron-font);
@@ -63,16 +71,16 @@ body {
   --font-mono: var(--ultron-font-mono);
 
   /* Legacy Backward Compatibility Tokens */
-  --color-primary: #63E8FF;
-  --color-primary-rgb: 99, 232, 255;
-  --color-hot: #88f5ff;
-  --color-hot-rgb: 136, 245, 255;
-  --color-glow: rgba(99, 232, 255, 0.7);
+  --color-primary: #00D9FF;
+  --color-primary-rgb: 0, 217, 255;
+  --color-hot: #00E6A8;
+  --color-hot-rgb: 0, 230, 168;
+  --color-glow: rgba(0, 217, 255, 0.4);
   --hud-bg: var(--ultron-panel);
   --hud-border: var(--ultron-border);
-  --hud-btn-hover-bg: rgba(99, 232, 255, 0.16);
-  --hud-btn-active-bg: rgba(99, 232, 255, 0.25);
-  --hud-btn-pressed-bg: rgba(99, 232, 255, 0.35);
+  --hud-btn-hover-bg: rgba(0, 217, 255, 0.12);
+  --hud-btn-active-bg: rgba(22, 135, 255, 0.25);
+  --hud-btn-pressed-bg: rgba(22, 135, 255, 0.35);
 }
 
 html {
@@ -184,10 +192,51 @@ button {
 }
 
 .ultron-cyan { color: var(--ultron-cyan); }
-.ultron-violet { color: var(--ultron-violet); }
-.ultron-success { color: var(--ultron-success); }
-.ultron-warning { color: var(--ultron-warning); }
-.ultron-error { color: var(--ultron-error); }
+.ultron-blue { color: var(--ultron-blue); }
+.ultron-purple { color: var(--ultron-purple); }
+.ultron-violet { color: var(--ultron-purple); }
+.ultron-success { color: var(--ultron-green); }
+.ultron-warning { color: var(--ultron-amber); }
+.ultron-error { color: var(--ultron-red); }
+
+/* Exact Command Center Panel Geometries (Directive Section 3) */
+.ultron-panel-base {
+  background: var(--ultron-panel);
+  border: 1px solid var(--ultron-border);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(0, 217, 255, 0.025), 0 10px 40px rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ultron-panel-base:hover {
+  border-color: var(--ultron-border-bright);
+}
+
+.ultron-card-subtle {
+  background: var(--ultron-panel-2);
+  border: 1px solid var(--ultron-border);
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+.ultron-card-subtle:hover {
+  background: var(--ultron-panel-hover);
+  border-color: var(--ultron-border-bright);
+}
+
+/* Atmospheric subtle background glows and technical grid */
+.ultron-os-bg {
+  background-color: var(--ultron-bg);
+  background-image:
+    radial-gradient(circle at 50% 0%, rgba(0, 217, 255, 0.04) 0%, transparent 60%),
+    radial-gradient(circle at 85% 20%, rgba(124, 77, 255, 0.035) 0%, transparent 50%),
+    radial-gradient(circle at 15% 80%, rgba(22, 135, 255, 0.03) 0%, transparent 50%),
+    linear-gradient(rgba(11, 42, 80, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(11, 42, 80, 0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+}
 
 
 .orb-root {
