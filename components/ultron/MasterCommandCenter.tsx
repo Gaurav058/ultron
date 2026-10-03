@@ -53,6 +53,7 @@ export default function MasterCommandCenter() {
   const [selectedGate, setSelectedGate] = useState<PolicyGate | null>(null);
   const [showAdaptiveWorkspace, setShowAdaptiveWorkspace] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [showUserPopover, setShowUserPopover] = useState(false);
 
   // Live Activity Stream
   const [activityFeed, setActivityFeed] = useState<ActivityEvent[]>([
@@ -305,19 +306,49 @@ export default function MasterCommandCenter() {
         </div>
 
         <div className="wordmark">
-          <div>ULTRON</div>
+          <div>ULTRON∞</div>
           <span>BEYOND INTELLIGENCE. BEYOND LIMITS.</span>
         </div>
 
-        <div className="top-right">
+        <div className="top-right" style={{ position: "relative" }}>
           <div>
-            <div className="micro">{time.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric" })}</div>
-            <div className="version">{time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })} • INDIA / UTC+5:30</div>
+            <div className="micro">{time.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" }).toUpperCase()}</div>
+            <div className="version">{time.toLocaleDateString(undefined, { weekday: "long" }).toUpperCase()} • INDIA / UTC+5:30</div>
           </div>
-          <div className="user-chip">GAURAV</div>
+          <button
+            type="button"
+            className="user-chip"
+            onClick={() => setShowUserPopover(!showUserPopover)}
+            aria-label="Prime User Gaurav Profile"
+          >
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontWeight: "bold", letterSpacing: "1px", lineHeight: "1" }}>GAURAV</div>
+              <div style={{ fontSize: "6px", color: "var(--muted)", letterSpacing: "0.5px", marginTop: "2px" }}>PRIME USER</div>
+            </div>
+          </button>
           <Link href="/ui-reference" title="Visual QA Reference Comparison Route" className="status-orb online text-decoration-none">
             ◉
           </Link>
+
+          {showUserPopover && (
+            <div className="user-popover holo-panel">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: "6px", marginBottom: "6px", borderBottom: "1px solid rgba(0, 217, 255, 0.2)" }}>
+                <h4>PRIME USER PROFILE</h4>
+                <button
+                  type="button"
+                  onClick={() => setShowUserPopover(false)}
+                  style={{ fontSize: "8px", color: "#65718f", background: "transparent", border: "0", cursor: "pointer" }}
+                >
+                  ✕
+                </button>
+              </div>
+              <p><b>OPERATOR:</b> GAURAV</p>
+              <p><b>ROLE:</b> PRIME ARCHITECT</p>
+              <p><b>AUTHORITY:</b> LEVEL 5 (SOVEREIGN)</p>
+              <p><b>DEVICES:</b> 3 PAIRED (MESH ACTIVE)</p>
+              <div className="popover-badge">ZERO-TRUST VERIFIED</div>
+            </div>
+          )}
         </div>
       </header>
 

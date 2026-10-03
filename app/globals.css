@@ -1804,6 +1804,90 @@ body {
   margin-top: 2px;
 }
 
+/* Real Central ULTRON Entity Artwork */
+.ultron-reference-art {
+  position: absolute;
+  inset: -5% -3%;
+  width: 106%;
+  height: 110%;
+  object-fit: cover;
+  mix-blend-mode: screen;
+  filter: saturate(1.08) contrast(1.05);
+  opacity: 0.98;
+  z-index: 2;
+  mask-image: radial-gradient(ellipse at center, black 58%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 58%, transparent 100%);
+}
+
+.infinity-core:after {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 54%, rgba(90, 80, 255, 0.08), transparent 42%, rgba(0, 0, 0, 0.25) 78%, transparent 100%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Reference artwork is the authoritative ULTRON entity. CSS robot remains disabled. */
+.ultron {
+  display: none !important;
+}
+
+/* GAURAV user identity button: non-navigational, opens identity popover */
+.user-chip {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: #c6d3f7;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+.user-chip:hover {
+  color: var(--cyan);
+  background: rgba(0, 217, 255, 0.08);
+  text-shadow: 0 0 12px rgba(0, 217, 255, 0.35);
+}
+
+/* User Identity Popover */
+.user-popover {
+  position: absolute;
+  top: 100%;
+  right: 1.5vw;
+  width: 220px;
+  background: linear-gradient(145deg, rgba(8, 13, 34, 0.95), rgba(3, 7, 21, 0.92));
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 217, 255, 0.15);
+  backdrop-filter: blur(16px);
+  padding: 12px;
+  z-index: 100;
+  border-radius: 4px;
+  font-family: inherit;
+}
+.user-popover h4 {
+  margin: 0 0 4px;
+  font-size: 9px;
+  color: var(--cyan);
+  letter-spacing: 1px;
+}
+.user-popover p {
+  margin: 2px 0;
+  font-size: 7px;
+  color: #aab7d2;
+}
+.user-popover .popover-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  background: rgba(99, 245, 210, 0.12);
+  color: #63f5d2;
+  font-size: 6px;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+
 @media (max-width: 1050px) {
   .command-center { grid-template-columns: 78px 1fr 250px; }
   .wordmark { font-size: 21px; }
@@ -1836,7 +1920,6 @@ body {
   .system-strip { grid-template-columns: repeat(2, 1fr); height: auto; margin: 8px 12px; }
   .system-strip > div { padding: 12px 4px; }
   .infinity-core { width: 390px; height: 390px; }
-  .ultron { width: 25%; }
 }
 
 @media (max-width: 430px) {
@@ -1857,6 +1940,3 @@ body {
     scroll-behavior: auto !important;
   }
 }
-
-
-

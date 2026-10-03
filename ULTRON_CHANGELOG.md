@@ -5,7 +5,23 @@
 
 ---
 
-## [2.0.0] - 2026-10-03 (Infinity Intelligence Release)
+## [2.0.0] - 2026-10-03 (Infinity Intelligence — Exact Reference Reconstruction)
+
+### Authoritative Central Artwork Integration
+- Integrated `ultron-core-art.png` from `ULTRON_Exact_Reference_UI_Code.zip` into `public/ultron-core-art.png`.
+- Replaced the CSS-generated humanoid robot with the real reference artwork featuring the ULTRON entity, cosmic environment, orbital energy, planets, and purple/cyan illumination.
+- Applied radial masking (`mask-image: radial-gradient(ellipse at center, black 58%, transparent 100%)`), dark edge blending, and screen mix-blend mode to seamlessly integrate the artwork with the deep cosmic background.
+
+### Gaurav User Identity UX Fix (Zero Document/PDF Links)
+- Audited the entire codebase for document and PDF links on the user identity.
+- Re-implemented `GAURAV` as an interactive `<button>` with subtitle `PRIME USER`.
+- Clicking `GAURAV` toggles an in-place glassmorphic profile/session popover showing: Operator name, Prime Architect role, Level 5 Authority, paired mesh devices, and zero-trust verification status.
+- Strictly enforced that clicking `GAURAV` never opens a PDF, triggers a download, or navigates away.
+
+### Compact Operational Typography & Color Recalibration
+- Re-aligned desktop typography scale: ULTRON OS (16–18px), main wordmark `ULTRON∞` (38–44px), navigation (9–11px), panel headings (8–10px), agent names (8–10px), metrics (7–10px), mission title (10–12px).
+- Enforced soft cool white (`#DCE4F5`, `#C9D3E9`, `#AAB7D2`) for primary text and muted slate (`#6B7897`, `#59657F`) for secondary labels.
+- Reserved green (`#5FF0A0` / `#63F5D2`) exclusively for `ONLINE`, `HEALTHY`, `CONNECTED`, and `SUCCESS`.
 
 ### Architectural Transformation
 - Transformed the legacy 3D HUD / Jarvis-inspired interface into a full-scale **Cognitive Operating System & Control Plane** operating across Desktop, iOS, and Android clients.

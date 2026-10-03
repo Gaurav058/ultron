@@ -104,21 +104,12 @@ export default function UltronInfinityCore({
       <div className="energy energy-1" />
       <div className="energy energy-2" />
 
-      {/* Sleek ULTRON Cybernetic Android Chassis / Embodiment Entity */}
-      <div className="ultron">
-        <div className="head">
-          <span className="eye left" />
-          <span className="eye right" />
-        </div>
-        <div className="neck" />
-        <div className="torso">
-          <div className="chest-core" />
-        </div>
-        <div className="arm arm-left" />
-        <div className="arm arm-right" />
-        <div className="leg leg-left" />
-        <div className="leg leg-right" />
-      </div>
+      {/* Real Authoritative Central ULTRON Humanoid + Universe Artwork */}
+      <img
+        className="ultron-reference-art"
+        src="/ultron-core-art.png"
+        alt="ULTRON humanoid intelligence entity surrounded by a cosmic infinity system"
+      />
 
       {/* Central Luminous Core Sphere with Pulsing Rings */}
       <div className="core-sphere" onClick={onToggleVoice}>
