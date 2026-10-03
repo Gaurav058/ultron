@@ -12,23 +12,19 @@ body {
 }
 
 :root {
-  /* Global ULTRON Typography & Color System */
+  /* Global ULTRON Theme Tokens (Section 3) */
   --ultron-bg: #02030A;
-  --ultron-bg-2: #050817;
   --ultron-bg-secondary: #050817;
 
-  --ultron-panel: rgba(7, 11, 28, 0.88);
-  --ultron-panel-solid: #080D20;
-  --ultron-panel-hover: rgba(12, 18, 44, 0.92);
+  --ultron-panel: rgba(7, 11, 28, 0.94);
+  --ultron-panel-elevated: rgba(10, 15, 38, 0.97);
 
-  --ultron-border: rgba(105, 150, 255, 0.22);
-  --ultron-border-strong: rgba(99, 232, 255, 0.45);
+  --ultron-border: rgba(99, 232, 255, 0.22);
+  --ultron-border-active: rgba(99, 232, 255, 0.55);
 
   --ultron-text-primary: #EAF2FF;
-  --ultron-text-secondary: #AAB8D4;
-  --ultron-text-muted: #71809D;
-  --ultron-heading-secondary: #C9D5EA;
-  --ultron-label: #8FA3C5;
+  --ultron-text-secondary: #A8B5CC;
+  --ultron-text-muted: #6F7E99;
 
   --ultron-cyan: #63E8FF;
   --ultron-violet: #8D75FF;
@@ -38,6 +34,8 @@ body {
   --ultron-warning: #FFD166;
   --ultron-error: #FF667A;
 
+  --ultron-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+
   --ultron-font:
     Inter,
     Geist,
@@ -46,11 +44,12 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
+  --ultron-font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
   /* Aliases for UI classes */
   --bg: var(--ultron-bg);
   --panel: var(--ultron-panel);
-  --panel2: var(--ultron-panel-hover);
+  --panel2: var(--ultron-panel-elevated);
   --cyan: var(--ultron-cyan);
   --violet: var(--ultron-violet);
   --magenta: var(--ultron-magenta);
@@ -61,7 +60,7 @@ body {
   --font-display: var(--ultron-font);
   --font-body: var(--ultron-font);
   --font-tech: var(--ultron-font);
-  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-mono: var(--ultron-font-mono);
 
   /* Legacy Backward Compatibility Tokens */
   --color-primary: #63E8FF;
@@ -69,43 +68,51 @@ body {
   --color-hot: #88f5ff;
   --color-hot-rgb: 136, 245, 255;
   --color-glow: rgba(99, 232, 255, 0.7);
-  --hud-bg: rgba(7, 11, 28, 0.88);
-  --hud-border: rgba(105, 150, 255, 0.22);
+  --hud-bg: var(--ultron-panel);
+  --hud-border: var(--ultron-border);
   --hud-btn-hover-bg: rgba(99, 232, 255, 0.16);
   --hud-btn-active-bg: rgba(99, 232, 255, 0.25);
   --hud-btn-pressed-bg: rgba(99, 232, 255, 0.35);
-  --camera-panel-bg: #050817;
-  --camera-panel-shadow: rgba(99, 232, 255, 0.15);
-  --camera-video-filter: sepia(1) hue-rotate(155deg) saturate(2.2) brightness(0.75) contrast(1.15);
 }
 
-html,
+html {
+  background: var(--ultron-bg);
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   padding: 0;
-
   min-height: 100%;
   width: 100%;
-
   background: var(--ultron-bg);
   color: var(--ultron-text-primary);
-
   font-family: var(--ultron-font);
-
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body * {
   border-color: var(--ultron-border);
 }
 
-/* Force form controls to use ULTRON theme */
+/* Force form controls to use ULTRON theme (Section 3) */
+button,
 input,
 textarea,
 select {
-  background: rgba(4, 7, 18, 0.9);
+  font: inherit;
+}
+
+input,
+textarea,
+select {
   color: var(--ultron-text-primary);
+  background: var(--ultron-panel);
   border: 1px solid var(--ultron-border);
 }
 
@@ -115,8 +122,12 @@ textarea::placeholder {
 }
 
 select option {
-  background: #080D20;
-  color: #EAF2FF;
+  background: var(--ultron-bg-secondary);
+  color: var(--ultron-text-primary);
+}
+
+a {
+  color: var(--ultron-cyan);
 }
 
 button {

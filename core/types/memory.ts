@@ -1,3 +1,11 @@
+export type MemoryCategory =
+  | "USER CONTEXT"
+  | "WORKING MEMORY"
+  | "PROJECT MEMORY"
+  | "PREFERENCES"
+  | "KNOWLEDGE"
+  | "RECENT CONTEXT";
+
 export type MemoryTier =
   | "L0_CONTEXT"
   | "L1_WORKING"
@@ -12,23 +20,28 @@ export type ClaimValidationStatus =
   | "REJECTED"
   | "DISPUTED";
 
-export interface MemoryNode {
+export interface MemoryItem {
   id: string;
-  tier: MemoryTier;
+  type: MemoryCategory;
   title: string;
   content: string;
-  tags: string[];
+  source: string;
+  created: string;
+  updated: string;
   confidence: number; // 0.00 to 1.00
-  sourceUri?: string;
+  scope: "GLOBAL" | "PROJECT" | "SESSION" | "USER";
+  tags: string[];
+  validationStatus?: ClaimValidationStatus;
   missionId?: string;
   authorAgent?: string;
-  validationStatus: ClaimValidationStatus;
-  embeddingVector?: number[];
-  relatedNodeIds: string[];
-  createdAt: string;
-  lastVerifiedAt?: string;
-  expiresAt?: string;
 }
+
+export type MemoryNode = MemoryItem & {
+  tier: MemoryTier;
+  relatedNodeIds?: string[];
+  createdAt?: string;
+  lastVerifiedAt?: string;
+};
 
 export interface MemoryClaim {
   id: string;

@@ -1,13 +1,20 @@
 import { ToolDefinition, ToolExecutionResult, ToolInvocation } from "../types/tool";
+import { UltronEventBus } from "../events/eventBus";
 
 export const BUILTIN_TOOLS: ToolDefinition[] = [
   {
-    id: "browser_search",
+    id: "web_search",
     name: "Autonomous Web & Academic Search",
     description: "Multi-source web query retrieval with domain authority weighting and citation extraction.",
     category: "BROWSER",
+    status: "ONLINE",
     riskLevel: "LOW",
     requiresApproval: false,
+    permission: "search:execute",
+    authentication: "API_KEY",
+    lastExecution: "2026-10-03T16:45:00Z",
+    executionCount: 142,
+    availability: "AVAILABLE",
     parameters: [
       { name: "query", type: "string", description: "Target search query", required: true },
       { name: "maxResults", type: "number", description: "Number of sources", required: false, default: 5 },
@@ -17,12 +24,18 @@ export const BUILTIN_TOOLS: ToolDefinition[] = [
     isEnabled: true,
   },
   {
-    id: "filesystem_inspector",
-    name: "Workspace File System Inspector",
-    description: "Read, search, and inspect file trees inside authorized workspace boundaries.",
+    id: "filesystem",
+    name: "Controlled Workspace Filesystem Inspector",
+    description: "Read, search, and inspect file trees inside authorized workspace boundaries. Arbitrary path traversal is blocked.",
     category: "FILESYSTEM",
+    status: "ONLINE",
     riskLevel: "LOW",
     requiresApproval: false,
+    permission: "filesystem:read_workspace",
+    authentication: "SYSTEM_CREDENTIAL",
+    lastExecution: "2026-10-03T16:50:00Z",
+    executionCount: 428,
+    availability: "AVAILABLE",
     parameters: [
       { name: "path", type: "string", description: "Relative file path", required: true },
       { name: "operation", type: "string", description: "read | list | grep", required: true },
@@ -32,44 +45,187 @@ export const BUILTIN_TOOLS: ToolDefinition[] = [
     isEnabled: true,
   },
   {
-    id: "sandbox_terminal",
-    name: "Sandboxed Container Terminal",
-    description: "Executes commands within an isolated, ephemeral sandbox with strict resource limits.",
-    category: "SANDBOX",
+    id: "code_execution",
+    name: "Sandboxed Code Execution Engine",
+    description: "Executes isolated Python / TypeScript logic in an ephemeral sandbox with CPU and memory cgroups.",
+    category: "CODE",
+    status: "ONLINE",
     riskLevel: "HIGH",
     requiresApproval: true,
+    permission: "sandbox:execute_isolated",
+    authentication: "SYSTEM_CREDENTIAL",
+    lastExecution: "2026-10-03T15:30:00Z",
+    executionCount: 56,
+    availability: "RESTRICTED",
     parameters: [
-      { name: "command", type: "string", description: "Shell command string", required: true },
-      { name: "timeoutMs", type: "number", description: "Max execution duration", required: false, default: 10000 },
+      { name: "language", type: "string", description: "Language runtime (python | typescript)", required: true },
+      { name: "code", type: "string", description: "Source code block", required: true },
+      { name: "timeoutMs", type: "number", description: "Execution timeout in ms", required: false, default: 5000 },
     ],
     outputSchemaDescription: "{ exitCode: number, stdout: string, stderr: string }",
     rateLimitPerMinute: 10,
     isEnabled: true,
   },
   {
-    id: "security_scanner",
-    name: "Defensive SAST & CVE Analyzer",
-    description: "Scans repository AST for hardcoded secrets, dangerous eval, and CVE vulnerabilities.",
-    category: "SYSTEM",
-    riskLevel: "LOW",
+    id: "repository",
+    name: "Git Repository & Version Control Operator",
+    description: "Inspects commits, branches, staged changes, and pull request diffs within the local repository.",
+    category: "REPOSITORY",
+    status: "ONLINE",
+    riskLevel: "MEDIUM",
     requiresApproval: false,
+    permission: "git:read_status",
+    authentication: "SYSTEM_CREDENTIAL",
+    lastExecution: "2026-10-03T16:30:00Z",
+    executionCount: 89,
+    availability: "AVAILABLE",
     parameters: [
-      { name: "targetPath", type: "string", description: "Directory to scan", required: true },
+      { name: "command", type: "string", description: "status | diff | log", required: true },
     ],
-    outputSchemaDescription: "{ vulnerabilities: SecurityVulnerability[], passStatus: boolean }",
-    rateLimitPerMinute: 20,
+    outputSchemaDescription: "{ branch: string, status: string, recentCommits: any[] }",
+    rateLimitPerMinute: 30,
     isEnabled: true,
   },
   {
-    id: "system_telemetry",
-    name: "Host System Telemetry",
-    description: "Samples CPU, memory, uptime, and database latency.",
-    category: "SYSTEM",
+    id: "database",
+    name: "Sovereign Vector & Relational Store",
+    description: "Queries indexed embeddings, episodic logs, and structured telemetry via read-only parameterization.",
+    category: "DATABASE",
+    status: "ONLINE",
+    riskLevel: "MEDIUM",
+    requiresApproval: false,
+    permission: "db:read_indexed",
+    authentication: "SYSTEM_CREDENTIAL",
+    lastExecution: "2026-10-03T16:21:00Z",
+    executionCount: 310,
+    availability: "AVAILABLE",
+    parameters: [
+      { name: "collection", type: "string", description: "Target collection", required: true },
+      { name: "filter", type: "object", description: "Query filters", required: false },
+    ],
+    outputSchemaDescription: "{ count: number, records: any[] }",
+    rateLimitPerMinute: 120,
+    isEnabled: true,
+  },
+  {
+    id: "email",
+    name: "SMTP / IMAP Secure Communication Relay",
+    description: "Drafts and sends structured status summaries. Outbound transmissions require human approval.",
+    category: "COMMUNICATION",
+    status: "NOT_CONFIGURED",
+    riskLevel: "HIGH",
+    requiresApproval: true,
+    permission: "email:draft_send",
+    authentication: "NOT_CONFIGURED",
+    lastExecution: undefined,
+    executionCount: 0,
+    availability: "NOT_CONFIGURED",
+    parameters: [
+      { name: "recipient", type: "string", description: "Target address", required: true },
+      { name: "subject", type: "string", description: "Subject line", required: true },
+      { name: "body", type: "string", description: "Email body text", required: true },
+    ],
+    outputSchemaDescription: "{ messageId: string, status: string }",
+    rateLimitPerMinute: 5,
+    isEnabled: false,
+  },
+  {
+    id: "calendar",
+    name: "CalDAV / Google Calendar Sync",
+    description: "Queries schedule conflicts, active mission deadlines, and syncs cognitive checkpoints.",
+    category: "PRODUCTIVITY",
+    status: "NOT_CONFIGURED",
     riskLevel: "LOW",
     requiresApproval: false,
+    permission: "calendar:read",
+    authentication: "NOT_CONFIGURED",
+    lastExecution: undefined,
+    executionCount: 0,
+    availability: "NOT_CONFIGURED",
+    parameters: [
+      { name: "timeRange", type: "string", description: "today | upcoming_week", required: true },
+    ],
+    outputSchemaDescription: "{ events: any[] }",
+    rateLimitPerMinute: 10,
+    isEnabled: false,
+  },
+  {
+    id: "browser",
+    name: "Headless Browser Automation & DOM Auditor",
+    description: "Crawls documentation pages, verifies dynamic web apps, and renders live screenshots.",
+    category: "BROWSER",
+    status: "ONLINE",
+    riskLevel: "MEDIUM",
+    requiresApproval: false,
+    permission: "browser:navigate",
+    authentication: "NONE",
+    lastExecution: "2026-10-03T16:15:00Z",
+    executionCount: 64,
+    availability: "AVAILABLE",
+    parameters: [
+      { name: "url", type: "string", description: "Target URL to inspect", required: true },
+    ],
+    outputSchemaDescription: "{ title: string, pageText: string, status: number }",
+    rateLimitPerMinute: 15,
+    isEnabled: true,
+  },
+  {
+    id: "notifications",
+    name: "System & Mobile Push Notification Dispatcher",
+    description: "Broadcasts critical cognitive alerts, approval requests, and mission completions to connected devices.",
+    category: "DEVICE",
+    status: "ONLINE",
+    riskLevel: "LOW",
+    requiresApproval: false,
+    permission: "notify:broadcast",
+    authentication: "SYSTEM_CREDENTIAL",
+    lastExecution: "2026-10-03T16:21:00Z",
+    executionCount: 19,
+    availability: "AVAILABLE",
+    parameters: [
+      { name: "title", type: "string", description: "Alert title", required: true },
+      { name: "level", type: "string", description: "INFO | WARN | CRITICAL", required: true },
+    ],
+    outputSchemaDescription: "{ sent: boolean, deviceCount: number }",
+    rateLimitPerMinute: 60,
+    isEnabled: true,
+  },
+  {
+    id: "device",
+    name: "Connected Device Hardware Sensor Bridge",
+    description: "Inspects local hardware sensors, camera feeds for hand tracking, and desktop state.",
+    category: "DEVICE",
+    status: "ONLINE",
+    riskLevel: "LOW",
+    requiresApproval: false,
+    permission: "device:sensors_read",
+    authentication: "NONE",
+    lastExecution: "2026-10-03T16:55:00Z",
+    executionCount: 94,
+    availability: "AVAILABLE",
     parameters: [],
-    outputSchemaDescription: "SystemVitals snapshot",
-    rateLimitPerMinute: 120,
+    outputSchemaDescription: "{ connectedDevices: string[], battery: number, display: string }",
+    rateLimitPerMinute: 60,
+    isEnabled: true,
+  },
+  {
+    id: "shell",
+    name: "Policy-Governed Controlled Shell Layer",
+    description: "Controlled execution layer for approved CLI utilities. Arbitrary unbounded shell access is strictly blocked by security policy.",
+    category: "SANDBOX",
+    status: "ONLINE",
+    riskLevel: "CRITICAL",
+    requiresApproval: true,
+    permission: "shell:execute_controlled",
+    authentication: "SYSTEM_CREDENTIAL",
+    lastExecution: "2026-10-03T14:10:00Z",
+    executionCount: 12,
+    availability: "RESTRICTED",
+    parameters: [
+      { name: "command", type: "string", description: "Whitelisted command name and arguments", required: true },
+    ],
+    outputSchemaDescription: "{ exitCode: number, stdout: string, stderr: string }",
+    rateLimitPerMinute: 5,
     isEnabled: true,
   },
 ];
@@ -88,11 +244,12 @@ export class ToolRegistry {
   }
 
   /**
-   * Safe execution harness with secret scrubbing and audit tracking.
+   * Safe execution harness with secret scrubbing, approval checks, and event emission.
    */
   public static async executeTool(invocation: ToolInvocation): Promise<ToolExecutionResult> {
     const tool = this.tools.get(invocation.toolId);
     if (!tool) {
+      UltronEventBus.publish("TOOL_FAILED", "TOOL", `Tool "${invocation.toolId}" not found in registry.`, { toolId: invocation.toolId });
       return {
         invocationId: invocation.id,
         toolId: invocation.toolId,
@@ -104,10 +261,27 @@ export class ToolRegistry {
       };
     }
 
+    if (tool.status === "NOT_CONFIGURED") {
+      return {
+        invocationId: invocation.id,
+        toolId: invocation.toolId,
+        success: false,
+        outputData: null,
+        executionDurationMs: 0,
+        error: `Tool "${tool.name}" is NOT CONFIGURED. Please set up authentication credentials.`,
+        redactedFields: [],
+      };
+    }
+
     const start = performance.now();
 
     // Check approval requirement for HIGH / CRITICAL
     if (tool.requiresApproval && !invocation.approvedBy) {
+      UltronEventBus.publish("APPROVAL_REQUESTED", "SECURITY", `High-risk tool execution requested: ${tool.name}`, {
+        toolId: tool.id,
+        riskLevel: tool.riskLevel,
+        inputPayload: invocation.inputPayload,
+      });
       return {
         invocationId: invocation.id,
         toolId: invocation.toolId,
@@ -119,41 +293,59 @@ export class ToolRegistry {
       };
     }
 
+    UltronEventBus.publish("TOOL_STARTED", "TOOL", `Executing tool: ${tool.name}`, {
+      toolId: tool.id,
+      inputPayload: invocation.inputPayload,
+    });
+
     // Execute tool logic
     let output: any = null;
-    let redactedFields: string[] = [];
+    const redactedFields: string[] = [];
 
-    if (tool.id === "system_telemetry") {
+    if (tool.id === "device") {
       output = {
-        cpuUsagePercent: 32 + Math.floor(Math.random() * 15),
-        memoryUsagePercent: 58 + Math.floor(Math.random() * 8),
-        activeMissionsCount: 1,
-        activeAgentsCount: 5,
-        uptimeSeconds: Math.floor(performance.now() / 1000),
-        vectorDbStatus: "HEALTHY",
-        modelRouterStatus: "ONLINE",
+        connectedDevices: ["Primary Desktop (Windows 11)", "Webcam MediaPipe Sensor"],
+        battery: 100,
+        display: "1920x1080 @ 60Hz",
+        status: "ACTIVE",
       };
-    } else if (tool.id === "filesystem_inspector") {
+    } else if (tool.id === "filesystem") {
       output = {
-        path: invocation.inputPayload.path,
+        path: invocation.inputPayload?.path || ".",
         status: "ACCESSED",
-        files: [".agents-cli-spec.md", "app", "components", "core", "docs", "lib", "package.json"],
+        files: ["app", "components", "core", "lib", "public", "package.json"],
       };
-    } else if (tool.id === "security_scanner") {
+    } else if (tool.id === "repository") {
       output = {
-        vulnerabilitiesCount: 0,
-        auditedFiles: 42,
-        secretScrubbingPassed: true,
-        summary: "Zero high-risk CVEs or unmasked API credentials discovered.",
+        branch: "main",
+        status: "CLEAN",
+        recentCommit: "feat: implement real UltronShell and voice agent architecture",
+      };
+    } else if (tool.id === "web_search") {
+      output = {
+        query: invocation.inputPayload?.query || "",
+        sources: [
+          { title: "Google Gemini Live API Reference", url: "https://ai.google.dev/api/live", authority: 0.98 },
+          { title: "ULTRON Monorepo Architecture", url: "file:///core/ULTRON_ARCHITECTURE.md", authority: 1.0 },
+        ],
       };
     } else {
       output = {
-        result: `Executed ${tool.name} with payload parameters.`,
-        parameters: invocation.inputPayload,
+        result: `Executed controlled tool: ${tool.name}.`,
+        parameters: invocation.inputPayload || {},
       };
     }
 
     const duration = Math.round(performance.now() - start);
+
+    // Update execution stats
+    tool.lastExecution = new Date().toISOString();
+    tool.executionCount += 1;
+
+    UltronEventBus.publish("TOOL_COMPLETED", "TOOL", `Completed tool: ${tool.name} in ${duration}ms`, {
+      toolId: tool.id,
+      durationMs: duration,
+    });
 
     return {
       invocationId: invocation.id,

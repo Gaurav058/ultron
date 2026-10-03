@@ -2,7 +2,7 @@ import { Mission, MissionTask, PolicyGate } from "../types/mission";
 import { parseIntent, ParsedIntent } from "../cognition/intentParser";
 import { generateMissionDAG } from "../planner/dagPlanner";
 import { RealityChecker } from "../verification/realityChecker";
-import { CORE_AGENT_ROSTER } from "../conductor/agentRoster";
+import { UltronEventBus } from "../events/eventBus";
 
 const STORAGE_KEY = "ultron.missions.v2";
 
@@ -52,13 +52,25 @@ export class MissionManager {
     return [...this.missions];
   }
 
-  public static getActiveMission(): Mission | undefined {
-    return this.missions.find((m) => m.status === "RUNNING" || m.status === "PLANNING" || m.status === "AWAITING_APPROVAL") || this.missions[0];
+  public static getMission(id: string): Mission | undefined {
+    return this.missions.find((m) => m.id === id || m.title.toLowerCase().includes(id.toLowerCase()));
   }
 
-  public static createMission(userInput: string): Mission {
+  public static getActiveMission(): Mission | undefined {
+    return (
+      this.missions.find(
+        (m) =>
+          m.status === "RUNNING" ||
+          m.status === "PLANNING" ||
+          m.status === "AWAITING_APPROVAL" ||
+          m.status === "VERIFYING"
+      ) || this.missions[0]
+    );
+  }
+
+  public static createMission(userInput: string, priority?: "P0" | "P1" | "P2" | "P3"): Mission {
     const intent: ParsedIntent = parseIntent(userInput);
-    const missionId = `mission-${Date.now()}`;
+    const missionId = `msn-${Date.now().toString().slice(-6)}`;
     const timestamp = new Date().toISOString();
 
     const tasks = generateMissionDAG(intent, missionId);
@@ -77,6 +89,9 @@ export class MissionManager {
         requestedBy: "agent-security",
         timestamp,
       });
+      UltronEventBus.publish("APPROVAL_REQUESTED", "SECURITY", `Approval requested for mission: ${intent.title}`, {
+        missionId,
+      });
     }
 
     const mission: Mission = {
@@ -84,7 +99,7 @@ export class MissionManager {
       title: intent.title,
       objective: intent.objective,
       status: approvalQueue.length > 0 ? "AWAITING_APPROVAL" : "RUNNING",
-      priority: intent.suggestedPriority,
+      priority: priority || intent.suggestedPriority,
       tasks,
       activeAgents: Array.from(new Set(tasks.map((t) => t.assignedAgent))),
       evidenceLedger: [
@@ -115,8 +130,75 @@ export class MissionManager {
     }
 
     this.missions.unshift(mission);
+    UltronEventBus.publish("MISSION_CREATED", "CONDUCTOR", `Mission created: [${mission.id}] ${mission.title}`, {
+      missionId: mission.id,
+      title: mission.title,
+    });
+
     this.notify();
     return mission;
+  }
+
+  public static pauseMission(missionId: string): boolean {
+    const mission = this.getMission(missionId);
+    if (!mission) return false;
+
+    mission.status = "PAUSED";
+    mission.updatedAt = new Date().toISOString();
+    UltronEventBus.publish("MISSION_PAUSED", "CONDUCTOR", `Paused mission: [${mission.id}] ${mission.title}`, {
+      missionId: mission.id,
+    });
+    this.notify();
+    return true;
+  }
+
+  public static resumeMission(missionId: string): boolean {
+    const mission = this.getMission(missionId);
+    if (!mission) return false;
+
+    mission.status = "RUNNING";
+    mission.updatedAt = new Date().toISOString();
+    UltronEventBus.publish("MISSION_RESUMED", "CONDUCTOR", `Resumed mission: [${mission.id}] ${mission.title}`, {
+      missionId: mission.id,
+    });
+    this.notify();
+    return true;
+  }
+
+  public static cancelMission(missionId: string): boolean {
+    const mission = this.getMission(missionId);
+    if (!mission) return false;
+
+    mission.status = "CANCELLED";
+    mission.updatedAt = new Date().toISOString();
+    UltronEventBus.publish("MISSION_CANCELLED", "CONDUCTOR", `Cancelled mission: [${mission.id}] ${mission.title}`, {
+      missionId: mission.id,
+    });
+    this.notify();
+    return true;
+  }
+
+  public static retryMission(missionId: string): boolean {
+    const mission = this.getMission(missionId);
+    if (!mission) return false;
+
+    mission.status = "RUNNING";
+    mission.tasks.forEach((t) => {
+      if (t.status === "FAILED") {
+        t.status = "QUEUED";
+        t.progress = 0;
+      }
+    });
+    if (mission.tasks.length > 0) {
+      mission.tasks[0].status = "RUNNING";
+      mission.tasks[0].progress = 20;
+    }
+    mission.updatedAt = new Date().toISOString();
+    UltronEventBus.publish("MISSION_STARTED", "CONDUCTOR", `Retried mission: [${mission.id}] ${mission.title}`, {
+      missionId: mission.id,
+    });
+    this.notify();
+    return true;
   }
 
   public static approveGate(missionId: string, gateId: string): void {
@@ -126,10 +208,14 @@ export class MissionManager {
     const gate = mission.approvalQueue.find((g) => g.id === gateId);
     if (gate) {
       gate.status = "APPROVED";
+      UltronEventBus.publish("APPROVAL_GRANTED", "SECURITY", `Approved security gate: ${gate.action} for ${gate.target}`, {
+        missionId,
+        gateId,
+      });
+
       const hasPending = mission.approvalQueue.some((g) => g.status === "PENDING");
       if (!hasPending && mission.status === "AWAITING_APPROVAL") {
         mission.status = "RUNNING";
-        // Unblock first pending task
         const pendingTask = mission.tasks.find((t) => t.status === "QUEUED");
         if (pendingTask) {
           pendingTask.status = "RUNNING";
@@ -151,6 +237,12 @@ export class MissionManager {
       task.progress = 100;
       task.completedAt = new Date().toISOString();
 
+      UltronEventBus.publish("AGENT_COMPLETED", "AGENT", `Completed task: ${task.title} (${task.assignedAgent})`, {
+        missionId,
+        taskId,
+        agent: task.assignedAgent,
+      });
+
       // Find next task whose dependencies are satisfied
       const nextTask = mission.tasks.find(
         (t) =>
@@ -164,6 +256,11 @@ export class MissionManager {
       if (nextTask) {
         nextTask.status = "RUNNING";
         nextTask.progress = 20;
+        UltronEventBus.publish("AGENT_STARTED", "AGENT", `Started task: ${nextTask.title} (${nextTask.assignedAgent})`, {
+          missionId,
+          taskId: nextTask.id,
+          agent: nextTask.assignedAgent,
+        });
       } else {
         // All tasks completed -> Run Reality Checker
         const allDone = mission.tasks.every((t) => t.status === "COMPLETED");
@@ -172,6 +269,16 @@ export class MissionManager {
           mission.verificationReport = RealityChecker.auditMission(mission);
           mission.status = mission.verificationReport.overallStatus === "VERIFIED" ? "COMPLETED" : "FAILED";
           mission.completedAt = new Date().toISOString();
+
+          if (mission.status === "COMPLETED") {
+            UltronEventBus.publish("MISSION_COMPLETED", "CONDUCTOR", `Mission completed & verified: [${mission.id}] ${mission.title}`, {
+              missionId,
+            });
+          } else {
+            UltronEventBus.publish("MISSION_FAILED", "REALITY", `Mission verification failed: [${mission.id}] ${mission.title}`, {
+              missionId,
+            });
+          }
         }
       }
 

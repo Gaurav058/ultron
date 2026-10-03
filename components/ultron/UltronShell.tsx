@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import NavigationRail, { PillarNavId } from "./NavigationRail";
 import TopSystemBar from "./TopSystemBar";
+import RightIntelligenceRail from "./RightIntelligenceRail";
 import InfinityCore, { UltronCoreState } from "./InfinityCore";
-import ActiveAgentsPanel from "./ActiveAgentsPanel";
-import CurrentMissionCard from "./CurrentMissionCard";
-import AttentionPanel from "./AttentionPanel";
 import LowerTelemetryDeck from "./LowerTelemetryDeck";
 import BottomCommandBar from "./BottomCommandBar";
+import StatusBar from "./StatusBar";
 import MissionsModule from "./modules/MissionsModule";
 import BrainModule from "./modules/BrainModule";
 import AgentsModule from "./modules/AgentsModule";
@@ -21,6 +20,7 @@ import { MissionManager } from "../../core/missions/missionManager";
 import { MemoryEngine } from "../../core/memory/memoryEngine";
 import { RealityChecker } from "../../core/verification/realityChecker";
 import { UltronDoctor } from "../../core/runtime/ultronDoctor";
+import { UltronEventBus, UltronEvent } from "../../core/events/eventBus";
 
 export interface UltronShellProps {
   initialModule?: PillarNavId;
@@ -35,6 +35,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [selectedGate, setSelectedGate] = useState<PolicyGate | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [totalEventsCount, setTotalEventsCount] = useState(4);
 
   // Live Activity Stream (Section 15: timestamp, event, source, status)
   const [activityFeed, setActivityFeed] = useState<
@@ -55,7 +56,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
     {
       timestamp: "16:21:14",
       source: "MEMORY",
-      event: "4 Vector memory nodes indexed into L4 durable store",
+      event: "5 Vector memory nodes indexed into durable store",
       status: "ONLINE",
     },
     {
@@ -92,6 +93,42 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
 
     return unsubscribe;
   }, [activeMissionId]);
+
+  // Subscribe to Unified Event Bus (Section 25)
+  useEffect(() => {
+    const unsubscribeEventBus = UltronEventBus.subscribe("*", (evt: UltronEvent) => {
+      setTotalEventsCount((c) => c + 1);
+
+      const timeStr = new Date(evt.timestamp).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+
+      let statusBadge = "ONLINE";
+      if (evt.type.includes("ERROR") || evt.type.includes("FAILED")) statusBadge = "ERROR";
+      else if (evt.type.includes("APPROVAL")) statusBadge = "WARN";
+      else if (evt.type.includes("PAUSED")) statusBadge = "STANDBY";
+      else if (evt.type.includes("VOICE")) statusBadge = "VOICE";
+
+      setActivityFeed((prev) => [
+        {
+          timestamp: timeStr,
+          source: evt.source,
+          event: evt.summary,
+          status: statusBadge,
+        },
+        ...prev.slice(0, 15),
+      ]);
+
+      // If a mission was created by voice, make sure it is reflected immediately
+      if (evt.type === "MISSION_CREATED" && evt.payload?.missionId) {
+        setActiveMissionId(evt.payload.missionId);
+      }
+    });
+
+    return unsubscribeEventBus;
+  }, []);
 
   const activeMission = missions.find((m) => m.id === activeMissionId) || missions[0];
 
@@ -130,46 +167,18 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
     setIsProcessing(true);
     setCoreState("THINKING");
 
-    const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    // Ingest Intent
+    UltronEventBus.publish("SYSTEM_STATE_CHANGED", "USER", `Ingested intent: "${commandText.slice(0, 42)}..."`);
 
-    // Step 1: Ingest Intent
-    setActivityFeed((prev) => [
-      {
-        timestamp: timeStr,
-        source: "USER",
-        event: `Ingested intent: "${commandText.slice(0, 38)}..."`,
-        status: "INPUT",
-      },
-      ...prev.slice(0, 7),
-    ]);
-
-    // Step 2: Conductor compiles DAG Plan & Creates Mission
+    // Conductor compiles DAG Plan & Creates Mission
     setTimeout(() => {
       const newMission = MissionManager.createMission(commandText);
       setActiveMissionId(newMission.id);
       setCoreState("EXECUTING");
 
-      setActivityFeed((prev) => [
-        {
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-          source: "CONDUCTOR",
-          event: `Orchestrated mission [${newMission.title.slice(0, 28)}] with ${newMission.tasks.length} tasks`,
-          status: "PLAN",
-        },
-        ...prev.slice(0, 7),
-      ]);
-
       // Step 3: Researcher Gathers Evidence
       setTimeout(() => {
-        setActivityFeed((prev) => [
-          {
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-            source: "RESEARCHER",
-            event: "Synthesized multi-source evidence and context for execution",
-            status: "EVID",
-          },
-          ...prev.slice(0, 7),
-        ]);
+        UltronEventBus.publish("TOOL_STARTED", "AGENT", "Synthesized multi-source evidence and context for execution");
 
         // Step 4: Reality Checker Empirical Verification
         setTimeout(() => {
@@ -179,15 +188,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
           const passPct = Math.round(passRate * 100);
           setModelAccuracy(`${passPct}%`);
 
-          setActivityFeed((prev) => [
-            {
-              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-              source: "REALITY",
-              event: `Validated mission across 4 empirical gates (${passPct}% Pass)`,
-              status: report.overallStatus === "VERIFIED" ? "ONLINE" : "WARN",
-            },
-            ...prev.slice(0, 7),
-          ]);
+          UltronEventBus.publish("TOOL_COMPLETED", "REALITY", `Validated mission across 4 empirical gates (${passPct}% Pass)`);
 
           // Step 5: Memory Curator Records to Durable L4 Memory
           MemoryEngine.addWorkingMemory(
@@ -197,20 +198,10 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
             "agent-reality-checker"
           );
 
-          setActivityFeed((prev) => [
-            {
-              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-              source: "MEMORY",
-              event: "Persisted structured outcome to L4 Durable Fact Store",
-              status: "REMEMBER",
-            },
-            ...prev.slice(0, 7),
-          ]);
-
           setIsProcessing(false);
-        }, 800);
-      }, 700);
-    }, 600);
+        }, 600);
+      }, 500);
+    }, 400);
   };
 
   const pendingGates = useMemo(
@@ -258,7 +249,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         position: "relative",
       }}
     >
-      {/* 1. TOP SYSTEM BAR (Section 8) */}
+      {/* 1. TOP BAR (Section 4 & 8) */}
       <TopSystemBar
         coreStatus={coreState}
         doctorHealth={doctorHealth}
@@ -267,9 +258,9 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         pendingGatesCount={pendingGates.length}
       />
 
-      {/* 2. MAIN WORKSPACE WITH PERSISTENT NAVIGATION (Section 2 & 24) */}
+      {/* 2. ULTRON LAYOUT (Section 4) */}
       <div
-        className="ultron-workspace-container"
+        className="ultron-layout"
         style={{
           display: "flex",
           flex: 1,
@@ -278,7 +269,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
           position: "relative",
         }}
       >
-        {/* Persistent Left Navigation Rail (Section 9) */}
+        {/* Navigation Rail (Section 4 & 9) */}
         <div style={{ width: "160px", flexShrink: 0, height: "100%" }}>
           <NavigationRail
             active={activeModule}
@@ -287,9 +278,9 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
           />
         </div>
 
-        {/* Dynamic Workspace (Section 24) */}
-        <div
-          className="ultron-workspace"
+        {/* Main Viewport (Section 4) */}
+        <main
+          className="ultron-viewport"
           style={{
             flex: 1,
             minWidth: 0,
@@ -312,7 +303,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
                 padding: "8px 1.4vw 0",
               }}
             >
-              {/* Upper Section: Center Stage (ULTRON CORE) + Right Rail (Agents, Mission, Attention) */}
+              {/* Upper Section: Center Stage + Right Intelligence Rail */}
               <div
                 style={{
                   display: "grid",
@@ -323,7 +314,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
                   overflow: "hidden",
                 }}
               >
-                {/* Center Stage: ULTRON CORE with Cognitive Loop & Core State (Section 10) */}
+                {/* Center Stage: ULTRON CORE with Cognitive Loop & Core State (Section 2 & 6) */}
                 <div style={{ minWidth: 0, height: "100%", overflowY: "auto" }}>
                   <InfinityCore
                     status={coreState}
@@ -337,39 +328,18 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
                   />
                 </div>
 
-                {/* Right Rail: Active Agents (Section 12), Current Mission (Section 11), Attention (Section 13) */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "10px",
-                    height: "100%",
-                    overflowY: "auto",
-                    paddingRight: "2px",
-                  }}
-                >
-                  {/* Current Mission Panel (Section 11) */}
-                  <CurrentMissionCard
-                    mission={activeMission}
-                    onOpenMissionControl={() => handleSelectModule("MISSIONS")}
-                    onCreateMission={() => handleSelectModule("MISSIONS")}
-                  />
-
-                  {/* Active Agents Panel (Section 12) */}
-                  <ActiveAgentsPanel
-                    activeMission={activeMission}
-                    onSelectAgent={() => handleSelectModule("AGENTS")}
-                  />
-
-                  {/* Attention Panel (Section 13) */}
-                  <AttentionPanel
-                    pendingGates={pendingGates}
-                    onOpenApprovals={handleOpenApprovals}
-                  />
-                </div>
+                {/* Right Intelligence Rail (Section 4) */}
+                <RightIntelligenceRail
+                  activeMission={activeMission}
+                  pendingGates={pendingGates}
+                  onOpenMissionControl={() => handleSelectModule("MISSIONS")}
+                  onCreateMission={() => handleSelectModule("MISSIONS")}
+                  onSelectAgent={() => handleSelectModule("AGENTS")}
+                  onOpenApprovals={handleOpenApprovals}
+                />
               </div>
 
-              {/* Lower Section: World Intelligence | Live Activity | System Metrics (Sections 14, 15, 16) */}
+              {/* Lower Section: Live Activity | World Intelligence | System Metrics (Section 2) */}
               <div style={{ height: "185px", flexShrink: 0 }}>
                 <LowerTelemetryDeck
                   activityEvents={activityFeed}
@@ -378,37 +348,70 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
               </div>
             </div>
           ) : (
-            <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-              {activeModule === "MISSIONS" && (
-                <MissionsModule
-                  missions={missions}
-                  activeMission={activeMission}
-                  onSelectMission={setActiveMissionId}
-                  onOpenApproval={() => handleOpenApprovals()}
-                  onCreateMission={(prompt) => {
-                    const m = MissionManager.createMission(prompt);
-                    setActiveMissionId(m.id);
-                  }}
-                />
-              )}
-              {activeModule === "BRAIN" && <BrainModule />}
-              {activeModule === "AGENTS" && (
-                <AgentsModule
-                  activeTaskAgentId={activeMission?.tasks.find((t) => t.status === "RUNNING")?.assignedAgent}
-                />
-              )}
-              {activeModule === "TOOLS" && <ToolsModule />}
-              {activeModule === "WORLD" && <WorldModule />}
-              {activeModule === "SYSTEM" && <SystemModule />}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 340px",
+                gap: "10px",
+                flex: 1,
+                minHeight: 0,
+                overflow: "hidden",
+                padding: "8px 1.4vw 0",
+              }}
+            >
+              {/* Module Content */}
+              <div style={{ minWidth: 0, height: "100%", overflowY: "auto" }}>
+                {activeModule === "MISSIONS" && (
+                  <MissionsModule
+                    missions={missions}
+                    activeMission={activeMission}
+                    onSelectMission={setActiveMissionId}
+                    onOpenApproval={() => handleOpenApprovals()}
+                    onCreateMission={(prompt) => {
+                      const m = MissionManager.createMission(prompt);
+                      setActiveMissionId(m.id);
+                    }}
+                  />
+                )}
+                {activeModule === "BRAIN" && <BrainModule />}
+                {activeModule === "AGENTS" && (
+                  <AgentsModule
+                    activeTaskAgentId={activeMission?.tasks.find((t) => t.status === "RUNNING")?.assignedAgent}
+                  />
+                )}
+                {activeModule === "TOOLS" && <ToolsModule />}
+                {activeModule === "WORLD" && <WorldModule />}
+                {activeModule === "SYSTEM" && <SystemModule />}
+              </div>
+
+              {/* Persistent Right Intelligence Rail across all views */}
+              <RightIntelligenceRail
+                activeMission={activeMission}
+                pendingGates={pendingGates}
+                onOpenMissionControl={() => handleSelectModule("MISSIONS")}
+                onCreateMission={() => handleSelectModule("MISSIONS")}
+                onSelectAgent={() => handleSelectModule("AGENTS")}
+                onOpenApprovals={handleOpenApprovals}
+              />
             </div>
           )}
-        </div>
+        </main>
       </div>
 
-      {/* 3. PERSISTENT BOTTOM COMMAND BAR (Section 17) */}
+      {/* 3. COMMAND BAR (Section 4 & 17) */}
       <BottomCommandBar
         onSubmitIntent={handleCommandSubmit}
         isProcessing={isProcessing}
+      />
+
+      {/* 4. STATUS BAR (Section 4) */}
+      <StatusBar
+        systemHealth={doctorHealth}
+        connectedDevicesCount={1}
+        activeAgentsCount={10}
+        eventsCount={totalEventsCount}
+        memoryNodesCount={5}
+        securityMode="ZERO-TRUST LEAST PRIVILEGE"
       />
 
       {/* Human-in-the-Loop Approval Modal */}

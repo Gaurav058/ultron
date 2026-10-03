@@ -2,6 +2,8 @@
 
 import React, { useRef, useState } from "react";
 import UltronButton from "../common/UltronButton";
+import VoiceCommandBar from "../voice/VoiceCommandBar";
+import VoiceSessionPanel from "../voice/VoiceSessionPanel";
 
 export interface BottomCommandBarProps {
   onSubmitIntent: (text: string) => void;
@@ -13,54 +15,9 @@ export default function BottomCommandBar({
   isProcessing = false,
 }: BottomCommandBarProps) {
   const [input, setInput] = useState("");
-  const [isListening, setIsListening] = useState(false);
+  const [showSessionPanel, setShowSessionPanel] = useState(false);
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const toggleVoice = () => {
-    if (typeof window === "undefined") return;
-
-    if (isListening) {
-      setIsListening(false);
-      return;
-    }
-
-    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRec) {
-      alert("Browser speech recognition is not supported in this browser. Please type your command.");
-      return;
-    }
-
-    try {
-      const rec = new SpeechRec();
-      rec.continuous = false;
-      rec.interimResults = true;
-      rec.lang = "en-US";
-
-      rec.onstart = () => {
-        setIsListening(true);
-      };
-
-      rec.onresult = (e: any) => {
-        const trans = Array.from(e.results)
-          .map((r: any) => r[0].transcript)
-          .join("");
-        setInput(trans);
-      };
-
-      rec.onend = () => {
-        setIsListening(false);
-      };
-
-      rec.onerror = () => {
-        setIsListening(false);
-      };
-
-      rec.start();
-    } catch {
-      setIsListening(false);
-    }
-  };
 
   const handleAttachmentClick = () => {
     fileInputRef.current?.click();
@@ -112,34 +69,43 @@ export default function BottomCommandBar({
           style={{ display: "none" }}
         />
 
-        {/* Left: Input container with exact Section 17 styling */}
+        {/* Section 2: [ 🎙 TALK TO ULTRON ] persistent voice button */}
+        <VoiceCommandBar
+          onTranscriptReceived={(transcript) => {
+            setInput(transcript);
+          }}
+          onOpenSessionDrawer={() => setShowSessionPanel((prev) => !prev)}
+        />
+
+        {/* Section 2: [ Ask ULTRON to research, build, analyze... ] */}
         <div style={{ flex: 1, position: "relative" }}>
           <input
             type="text"
+            id="input-ultron-command"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask ULTRON to research, build, analyze, automate..."
             style={{
               width: "100%",
               height: "44px",
-              background: "rgba(5, 8, 20, 0.95)",
-              color: "#EAF2FF",
-              border: "1px solid rgba(99, 232, 255, 0.25)",
+              background: "var(--ultron-panel)",
+              color: "var(--ultron-text-primary)",
+              border: "1px solid var(--ultron-border)",
               borderRadius: "8px",
               padding: "0 14px",
               fontSize: "13px",
               fontFamily: "var(--ultron-font)",
               outline: "none",
               transition: "all 0.25s ease",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.4)",
+              boxShadow: "var(--ultron-shadow)",
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = "rgba(99, 232, 255, 0.60)";
-              e.currentTarget.style.boxShadow = "0 0 20px rgba(99, 232, 255, 0.08)";
+              e.currentTarget.style.borderColor = "var(--ultron-border-active)";
+              e.currentTarget.style.boxShadow = "0 0 20px rgba(99, 232, 255, 0.12)";
             }}
             onBlur={(e) => {
-              e.currentTarget.style.borderColor = "rgba(99, 232, 255, 0.25)";
-              e.currentTarget.style.boxShadow = "0 4px 20px rgba(0, 0, 0, 0.4)";
+              e.currentTarget.style.borderColor = "var(--ultron-border)";
+              e.currentTarget.style.boxShadow = "var(--ultron-shadow)";
             }}
           />
 
@@ -151,7 +117,7 @@ export default function BottomCommandBar({
                 top: "50%",
                 transform: "translateY(-50%)",
                 fontSize: "10px",
-                color: "#63E8FF",
+                color: "var(--ultron-cyan)",
                 background: "rgba(99, 232, 255, 0.12)",
                 padding: "2px 6px",
                 borderRadius: "4px",
@@ -162,23 +128,6 @@ export default function BottomCommandBar({
             </div>
           )}
         </div>
-
-        {/* Voice Button */}
-        <UltronButton
-          type="button"
-          variant={isListening ? "primary" : "secondary"}
-          onClick={toggleVoice}
-          title={isListening ? "Listening... Click to stop" : "Voice Input"}
-          style={{
-            height: "44px",
-            minWidth: "44px",
-            padding: "0",
-            fontSize: "16px",
-            borderRadius: "8px",
-          }}
-        >
-          {isListening ? "●" : "🎙"}
-        </UltronButton>
 
         {/* Attachment Button */}
         <UltronButton
@@ -200,21 +149,27 @@ export default function BottomCommandBar({
         {/* Send Button */}
         <UltronButton
           type="submit"
+          id="btn-transmit-command"
           variant="primary"
           disabled={!input.trim() || isProcessing}
           title="Send command"
           style={{
             height: "44px",
-            minWidth: "80px",
+            minWidth: "90px",
             fontSize: "13px",
             fontWeight: 700,
             borderRadius: "8px",
             letterSpacing: "0.8px",
           }}
         >
-          {isProcessing ? "TRANSMITTING..." : "TRANSMIT ➔"}
+          {isProcessing ? "THINKING..." : "TRANSMIT ➔"}
         </UltronButton>
       </form>
+
+      {/* Voice Transcript Drawer / Session Panel */}
+      {showSessionPanel && (
+        <VoiceSessionPanel onClose={() => setShowSessionPanel(false)} />
+      )}
     </div>
   );
 }

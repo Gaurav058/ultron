@@ -1,103 +1,186 @@
-import { MemoryClaim, MemoryNode, MemoryTier } from "../types/memory";
+import { MemoryCategory, MemoryClaim, MemoryItem, MemoryNode, MemoryTier } from "../types/memory";
+import { UltronEventBus } from "../events/eventBus";
 
 export class MemoryEngine {
-  private static nodes: MemoryNode[] = [
+  private static items: MemoryItem[] = [
     {
-      id: "mem-l4-001",
-      tier: "L4_LONGTERM",
-      title: "Core System Invariant: Zero-Trust Least Privilege",
-      content: "All MCP tools default to read-only scope. High/Critical operations require explicit human approval.",
-      tags: ["security", "policy", "invariant"],
-      confidence: 1.0,
-      validationStatus: "VALIDATED",
-      relatedNodeIds: ["mem-l3-002"],
-      createdAt: "2026-10-01T00:00:00Z",
-      lastVerifiedAt: "2026-10-03T10:00:00Z",
-    },
-    {
-      id: "mem-l4-002",
-      tier: "L4_LONGTERM",
+      id: "mem-proj-001",
+      type: "PROJECT MEMORY",
       title: "Target System Identity: ULTRON V2 Cognitive OS",
-      content: "Cross-platform cognitive operating system coordinating Desktop Next.js deck and tactical mobile nodes.",
+      content: "Persistent cross-platform cognitive operating system coordinating Desktop Next.js deck, Gemini Live voice agent, and specialist agent fleet.",
+      source: "file:///ULTRON_ARCHITECTURE.md",
+      created: "2026-10-01T00:00:00Z",
+      updated: "2026-10-03T10:00:00Z",
+      confidence: 1.0,
+      scope: "PROJECT",
       tags: ["architecture", "identity"],
-      confidence: 1.0,
       validationStatus: "VALIDATED",
-      relatedNodeIds: [],
-      createdAt: "2026-10-01T00:00:00Z",
-      lastVerifiedAt: "2026-10-03T10:00:00Z",
     },
     {
-      id: "mem-l3-001",
-      tier: "L3_SEMANTIC",
-      title: "Next.js 16 + React 19 Client Component Integration",
-      content: "Three.js and MediaPipe require client boundaries ('use client'). Turbopack root must be mapped.",
-      tags: ["frontend", "nextjs", "react19"],
+      id: "mem-pref-001",
+      type: "PREFERENCES",
+      title: "UI Design & Visual Hierarchy Contract",
+      content: "Theme palette: --ultron-bg: #02030A, primary text: #EAF2FF, cyan accent: #63E8FF. Zero black text in dark mode. No full-page screenshot artwork.",
+      source: "USER_DIRECTIVE",
+      created: "2026-10-03T07:30:00Z",
+      updated: "2026-10-03T16:00:00Z",
+      confidence: 1.0,
+      scope: "USER",
+      tags: ["design", "tokens", "ergonomics"],
+      validationStatus: "VALIDATED",
+    },
+    {
+      id: "mem-know-001",
+      type: "KNOWLEDGE",
+      title: "Google Gemini Live API Integration Spec",
+      content: "Official @google/genai SDK used server-side with GEMINI_API_KEY environment variable. Bidirectional live streaming with real tools.",
+      source: "https://ai.google.dev/api/live",
+      created: "2026-10-03T11:00:00Z",
+      updated: "2026-10-03T16:30:00Z",
+      confidence: 0.98,
+      scope: "GLOBAL",
+      tags: ["ai", "gemini", "voice"],
+      validationStatus: "VALIDATED",
+    },
+    {
+      id: "mem-user-001",
+      type: "USER CONTEXT",
+      title: "Active Developer Environment",
+      content: "Operating System: Windows 11. Shell: PowerShell. Development server running Next.js 16 on port 3000.",
+      source: "SYSTEM_ENVIRONMENT",
+      created: "2026-10-03T08:00:00Z",
+      updated: "2026-10-03T16:50:00Z",
+      confidence: 1.0,
+      scope: "SESSION",
+      tags: ["environment", "local"],
+      validationStatus: "VALIDATED",
+    },
+    {
+      id: "mem-work-001",
+      type: "WORKING MEMORY",
+      title: "Phase 7-12 Voice & UI Synchronization",
+      content: "Connecting VoiceCommandBar to /api/voice/chat and synchronizing real-time events to active missions.",
+      source: "agent-conductor",
+      created: "2026-10-03T16:40:00Z",
+      updated: "2026-10-03T17:00:00Z",
       confidence: 0.95,
-      sourceUri: "file:///next.config.ts",
-      validationStatus: "VALIDATED",
-      relatedNodeIds: ["mem-l4-002"],
-      createdAt: "2026-10-02T12:00:00Z",
-    },
-    {
-      id: "mem-l2-001",
-      tier: "L2_EPISODIC",
-      title: "Repository Audit Completed",
-      content: "Audited Gaurav058/ultron: Three.js orb and hand tracker preserved; created .agents-cli-spec.md contract.",
-      tags: ["audit", "milestone"],
-      confidence: 1.0,
-      validationStatus: "VALIDATED",
-      relatedNodeIds: [],
-      createdAt: "2026-10-03T07:45:00Z",
+      scope: "PROJECT",
+      tags: ["active-task", "conductor"],
+      validationStatus: "ANALYZING",
     },
   ];
 
+  public static getItems(category?: MemoryCategory): MemoryItem[] {
+    if (!category) return [...this.items];
+    return this.items.filter((item) => item.type === category);
+  }
+
+  public static query(searchQuery: string, category?: MemoryCategory): MemoryItem[] {
+    const q = searchQuery.toLowerCase().trim();
+    let pool = category ? this.items.filter((item) => item.type === category) : this.items;
+    if (!q) return pool;
+
+    return pool.filter(
+      (item) =>
+        item.content.toLowerCase().includes(q) ||
+        (item.title && item.title.toLowerCase().includes(q)) ||
+        item.source.toLowerCase().includes(q) ||
+        item.tags?.some((t) => t.toLowerCase().includes(q))
+    );
+  }
+
+  public static addMemoryItem(params: {
+    type: MemoryCategory;
+    title?: string;
+    content: string;
+    source: string;
+    confidence?: number;
+    scope?: "GLOBAL" | "PROJECT" | "SESSION" | "USER";
+    tags?: string[];
+  }): MemoryItem {
+    const now = new Date().toISOString();
+    const item: MemoryItem = {
+      id: `mem-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      type: params.type,
+      title: params.title || params.content.slice(0, 40),
+      content: params.content,
+      source: params.source,
+      created: now,
+      updated: now,
+      confidence: params.confidence ?? 0.9,
+      scope: params.scope || "PROJECT",
+      tags: params.tags || [],
+      validationStatus: "VALIDATED",
+    };
+
+    this.items.unshift(item);
+
+    UltronEventBus.publish("MEMORY_CREATED", "MEMORY", `Recorded memory item: ${item.title}`, {
+      id: item.id,
+      type: item.type,
+      source: item.source,
+    });
+
+    return item;
+  }
+
+  public static forgetContext(scope: "SESSION" | "RECENT" = "SESSION"): number {
+    const initialCount = this.items.length;
+    this.items = this.items.filter((i) => i.scope !== "SESSION" && i.type !== "RECENT CONTEXT");
+    const removed = initialCount - this.items.length;
+
+    UltronEventBus.publish("MEMORY_UPDATED", "MEMORY", `Purged ${removed} ephemeral memory contexts.`, {
+      purgedCount: removed,
+    });
+
+    return removed;
+  }
+
+  // Legacy compatibility methods for existing callers
   public static getNodes(tier?: MemoryTier): MemoryNode[] {
-    if (!tier) return [...this.nodes];
-    return this.nodes.filter((n) => n.tier === tier);
+    return this.items.map((i) => ({
+      ...i,
+      tier: "L4_LONGTERM" as MemoryTier,
+      relatedNodeIds: [],
+    }));
   }
 
   public static addWorkingMemory(missionId: string, title: string, content: string, agent: string): MemoryNode {
-    const node: MemoryNode = {
-      id: `mem-l1-${Date.now()}`,
-      tier: "L1_WORKING",
+    const item = this.addMemoryItem({
+      type: "WORKING MEMORY",
       title,
       content,
+      source: agent,
+      scope: "PROJECT",
       tags: ["working", "active-mission"],
-      confidence: 0.8,
+    });
+    return {
+      ...item,
+      tier: "L1_WORKING",
       missionId,
       authorAgent: agent,
-      validationStatus: "ANALYZING",
-      relatedNodeIds: [],
-      createdAt: new Date().toISOString(),
     };
-    this.nodes.push(node);
-    return node;
   }
 
-  /**
-   * Memory Governance Promotion:
-   * Source -> Signal -> Claim -> Validation -> Verified L4 Fact
-   */
   public static promoteClaimToDurableFact(claim: MemoryClaim, authorAgent: string): MemoryNode | null {
     if (!claim.validated || claim.confidenceScore < 0.85) {
       return null;
     }
 
-    const newNode: MemoryNode = {
-      id: `mem-l4-${Date.now()}`,
-      tier: "L4_LONGTERM",
+    const item = this.addMemoryItem({
+      type: "KNOWLEDGE",
       title: claim.atomicClaim,
       content: `${claim.sourceText}\n\nEvidence: ${claim.evidence.join("; ")}`,
-      tags: ["verified-fact", "promoted"],
+      source: authorAgent,
       confidence: claim.confidenceScore,
-      authorAgent,
-      validationStatus: "VALIDATED",
-      relatedNodeIds: [],
-      createdAt: new Date().toISOString(),
-      lastVerifiedAt: new Date().toISOString(),
-    };
+      scope: "PROJECT",
+      tags: ["verified-fact", "promoted"],
+    });
 
-    this.nodes.push(newNode);
-    return newNode;
+    return {
+      ...item,
+      tier: "L4_LONGTERM",
+      authorAgent,
+    };
   }
 }
