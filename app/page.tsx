@@ -1,5 +1,5 @@
-import UltronCommandDeck from "@/components/deck/UltronCommandDeck";
+import MasterCommandCenter from "@/components/ultron/MasterCommandCenter";
 
 export default function Home() {
-  return <UltronCommandDeck />;
+  return <MasterCommandCenter />;
 }

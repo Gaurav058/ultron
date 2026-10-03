@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -10,19 +12,42 @@ body {
 }
 
 :root {
-  --color-primary: #ffaa30;
-  --color-primary-rgb: 255, 170, 48;
-  --color-hot: #ffcc66;
-  --color-hot-rgb: 255, 204, 102;
-  --color-glow: rgba(255, 170, 48, 0.7);
-  --hud-bg: rgba(20, 10, 0, 0.55);
-  --hud-border: rgba(255, 170, 48, 0.45);
-  --hud-btn-hover-bg: rgba(60, 30, 0, 0.7);
-  --hud-btn-active-bg: rgba(90, 45, 0, 0.8);
-  --hud-btn-pressed-bg: rgba(120, 60, 0, 0.6);
-  --camera-panel-bg: #0a0500;
-  --camera-panel-shadow: rgba(255, 140, 20, 0.15);
-  --camera-video-filter: sepia(1) hue-rotate(-15deg) saturate(2.2) brightness(0.75) contrast(1.15);
+  /* ULTRON Infinity Design Tokens */
+  --ultron-bg: #02030a;
+  --ultron-bg-surface: #030511;
+  --ultron-bg-cosmic: #050817;
+  --ultron-panel: rgba(8, 12, 30, 0.65);
+  --ultron-panel-strong: rgba(10, 16, 42, 0.85);
+  --ultron-cyan: #00d9ff;
+  --ultron-cyan-glow: rgba(0, 217, 255, 0.4);
+  --ultron-violet: #6d4aff;
+  --ultron-violet-glow: rgba(109, 74, 255, 0.4);
+  --ultron-magenta: #d84cff;
+  --ultron-gold: #ffaa30;
+  --ultron-gold-glow: rgba(255, 170, 48, 0.4);
+  --ultron-text: #e6edf8;
+  --ultron-text-muted: #8493b2;
+  --ultron-border: rgba(0, 217, 255, 0.2);
+  --ultron-border-violet: rgba(109, 74, 255, 0.25);
+  --font-display: 'Orbitron', 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-tech: 'Rajdhani', monospace;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* Legacy Backward Compatibility Tokens */
+  --color-primary: #00d9ff;
+  --color-primary-rgb: 0, 217, 255;
+  --color-hot: #88f5ff;
+  --color-hot-rgb: 136, 245, 255;
+  --color-glow: rgba(0, 217, 255, 0.7);
+  --hud-bg: rgba(8, 12, 30, 0.65);
+  --hud-border: rgba(0, 217, 255, 0.35);
+  --hud-btn-hover-bg: rgba(0, 60, 90, 0.7);
+  --hud-btn-active-bg: rgba(0, 90, 135, 0.8);
+  --hud-btn-pressed-bg: rgba(0, 120, 180, 0.6);
+  --camera-panel-bg: #000c14;
+  --camera-panel-shadow: rgba(0, 217, 255, 0.15);
+  --camera-video-filter: sepia(1) hue-rotate(155deg) saturate(2.2) brightness(0.75) contrast(1.15);
 }
 
 body.theme-jarvis {
