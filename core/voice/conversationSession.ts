@@ -9,9 +9,12 @@ export interface ConversationMessage {
   content: string;
   timestamp: string;
   toolCalls?: {
-    toolName: string;
+    name?: string;
+    toolName?: string;
     args: Record<string, any>;
     result?: any;
+    status?: string;
+    durationMs?: number;
   }[];
 }
 

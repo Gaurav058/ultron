@@ -56,3 +56,11 @@ Every action within the control plane produces an immutable audit record:
 - Target Resource / Tool Invoked
 - Risk Level & Policy Gate Status
 - Hash of Input & Output Payloads
+
+---
+
+## 5. Gemini API Key & Ephemeral Token Security (Section 3, 21, 38)
+1. **Server Isolation:** `GEMINI_API_KEY` is strictly confined to server-side runtime memory. It is never included in client bundles, public HTML, or browser-accessible environment variables.
+2. **Ephemeral Token Protocol:** Browser/mobile clients communicating with Gemini Live WebSockets obtain short-lived, permission-bounded session tokens from `GET /api/voice/token` via the official `@google/genai` SDK.
+3. **No Code Execution by LLM:** Gemini function calls produce structured schema requests that are validated and executed by ULTRON's Tool Router. The LLM is never given direct arbitrary code execution privileges.
+

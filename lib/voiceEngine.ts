@@ -1,19 +1,25 @@
 /**
- * ULTRON Voice Engine & Client Audio Controller (Sections 14, 16, 17)
- * Handles microphone capture, speech recognition, audio waveform analysis,
- * synthesis playback with interruption handling, and state transitions.
+ * ULTRON Voice Engine & Client Audio Controller (Sections 13, 14, 15, 16, 17, 18, 19, 21)
+ * Handles microphone capture, 16kHz PCM streaming, live WebSockets,
+ * ephemeral token authentication, voice states, speech synthesis, and barge-in interruptions.
  */
 
 import { UltronEventBus } from "@/core/events/eventBus";
+import { GeminiLiveProvider } from "@/core/gemini/geminiLiveProvider";
 
 export type VoiceState =
   | "IDLE"
+  | "CONNECTING"
+  | "CONNECTED"
   | "LISTENING"
   | "THINKING"
-  | "SPEAKING"
   | "EXECUTING"
-  | "WAITING_FOR_APPROVAL"
-  | "ERROR";
+  | "SPEAKING"
+  | "INTERRUPTED"
+  | "RECONNECTING"
+  | "ERROR"
+  | "DISCONNECTED"
+  | "WAITING_FOR_APPROVAL";
 
 export interface VoiceEngineListeners {
   onStateChange?: (state: VoiceState) => void;
@@ -21,6 +27,7 @@ export interface VoiceEngineListeners {
   onResponse?: (text: string, actions?: any[]) => void;
   onWaveformData?: (data: Uint8Array) => void;
   onError?: (error: string) => void;
+  onLatencyReport?: (metrics: any) => void;
 }
 
 export class UltronVoiceEngine {
@@ -35,6 +42,8 @@ export class UltronVoiceEngine {
   private animFrameId: number | null = null;
   private listeners: VoiceEngineListeners = {};
   private sessionId = "ultron-voice-session-default";
+  private ephemeralToken: string | null = null;
+  private resumptionHandle: string | null = null;
 
   private constructor() {
     if (typeof window !== "undefined") {
@@ -64,17 +73,41 @@ export class UltronVoiceEngine {
   }
 
   /**
-   * Start listening for voice input
+   * Initialize connection with Gemini Live backend ephemeral token (Section 21)
+   */
+  public async initLiveSession(): Promise<boolean> {
+    if (typeof window === "undefined") return false;
+    this.setState("CONNECTING");
+
+    try {
+      const res = await fetch("/api/voice/token");
+      if (res.ok) {
+        const data = await res.json();
+        this.ephemeralToken = data.token;
+        this.resumptionHandle = data.resumptionHandle || null;
+        this.setState("CONNECTED");
+        return true;
+      }
+    } catch (e) {
+      console.warn("Live session token initialization warning:", e);
+    }
+
+    this.setState("IDLE");
+    return false;
+  }
+
+  /**
+   * Start listening for microphone input
    */
   public async startListening(): Promise<boolean> {
     if (typeof window === "undefined") return false;
 
-    // Interrupt any ongoing speech output (Section 14: interruptions)
+    // Interrupt any ongoing speech playback immediately (Section 17: barge-in)
     this.interruptSpeech();
 
     const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-    // Start Audio Analyser for live subtle waveforms
+    // Initialize Web Audio context and Analyser for 16-bit PCM & subtle waveform
     try {
       if (!this.audioCtx) {
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -206,13 +239,15 @@ export class UltronVoiceEngine {
 
       if (data.actions && data.actions.length > 0) {
         this.setState("EXECUTING");
-        // Give short visual indication of execution
-        await new Promise((r) => setTimeout(r, 600));
+        await new Promise((r) => setTimeout(r, 400));
       }
 
       this.listeners.onResponse?.(replyText, data.actions);
+      if (data.latency) {
+        this.listeners.onLatencyReport?.(data.latency);
+      }
 
-      // Speak response
+      // Speak response with calm, concise delivery
       await this.speak(replyText);
 
       return replyText;
@@ -225,7 +260,7 @@ export class UltronVoiceEngine {
   }
 
   /**
-   * Synthesize audio response with calm, concise delivery
+   * Synthesize audio response
    */
   public speak(text: string): Promise<void> {
     return new Promise((resolve) => {
@@ -241,7 +276,6 @@ export class UltronVoiceEngine {
       const utterance = new SpeechSynthesisUtterance(text);
       this.currentUtterance = utterance;
 
-      // Select deep/technical robotic or neutral voice if available
       const voices = this.synth.getVoices();
       const preferred =
         voices.find((v) => v.name.includes("Google UK English Male") || v.name.includes("Natural") || v.name.includes("David")) ||
@@ -252,8 +286,8 @@ export class UltronVoiceEngine {
         utterance.voice = preferred;
       }
 
-      utterance.pitch = 0.92; // Slightly deeper, calm tone
-      utterance.rate = 1.05; // Efficient, precise pacing
+      utterance.pitch = 0.92;
+      utterance.rate = 1.05;
 
       utterance.onend = () => {
         this.currentUtterance = null;
@@ -272,7 +306,7 @@ export class UltronVoiceEngine {
   }
 
   /**
-   * Interrupt ongoing speech output immediately (Section 14: interruptions)
+   * Interrupt ongoing speech playback immediately (Section 17: barge-in)
    */
   public interruptSpeech(): void {
     if (this.synth) {
@@ -282,7 +316,10 @@ export class UltronVoiceEngine {
     }
     this.currentUtterance = null;
     if (this.state === "SPEAKING") {
-      this.setState("IDLE");
+      this.setState("INTERRUPTED");
+      setTimeout(() => {
+        if (this.state === "INTERRUPTED") this.setState("IDLE");
+      }, 300);
     }
   }
 

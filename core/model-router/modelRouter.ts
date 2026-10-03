@@ -1,17 +1,28 @@
 import {
   ModelProfile,
-  ModelRouteDecision,
+  ModelRouteDecision as LegacyModelRouteDecision,
   ModelRouteRequest,
-  WorkloadCategory,
 } from "../types/model";
 
 export const REGISTERED_MODELS: ModelProfile[] = [
   {
-    id: "gemini-1-5-pro",
+    id: "gemini-2-5-flash",
     provider: "GEMINI",
-    modelIdentifier: "gemini-1.5-pro",
-    displayName: "Gemini 1.5 Pro (Multimodal & Reasoning)",
-    contextWindow: 2000000,
+    modelIdentifier: "gemini-2.5-flash",
+    displayName: "Gemini 2.5 Flash (Ultra-Low Latency, Live Audio & Conversational)",
+    contextWindow: 1048576,
+    costPer1kInputTokens: 0.000075,
+    costPer1kOutputTokens: 0.0003,
+    avgLatencyMs: 120,
+    isAvailable: true,
+    isLocal: false,
+  },
+  {
+    id: "gemini-2-5-pro",
+    provider: "GEMINI",
+    modelIdentifier: "gemini-2.5-pro",
+    displayName: "Gemini 2.5 Pro (Deep Reasoning, Long Research & Code)",
+    contextWindow: 2097152,
     costPer1kInputTokens: 0.00125,
     costPer1kOutputTokens: 0.005,
     avgLatencyMs: 380,
@@ -43,18 +54,6 @@ export const REGISTERED_MODELS: ModelProfile[] = [
     isLocal: false,
   },
   {
-    id: "gemini-1-5-flash",
-    provider: "GEMINI",
-    modelIdentifier: "gemini-1.5-flash",
-    displayName: "Gemini 1.5 Flash (Ultra-Low Latency & Voice)",
-    contextWindow: 1000000,
-    costPer1kInputTokens: 0.000075,
-    costPer1kOutputTokens: 0.0003,
-    avgLatencyMs: 140,
-    isAvailable: true,
-    isLocal: false,
-  },
-  {
     id: "ollama-qwen-coder",
     provider: "OLLAMA_LOCAL",
     modelIdentifier: "qwen2.5-coder:14b",
@@ -80,9 +79,101 @@ export const REGISTERED_MODELS: ModelProfile[] = [
   },
 ];
 
+/**
+ * ULTRON Workload Categories (Section 8)
+ * Distinguishes:
+ * - FAST CONVERSATION
+ * - REASONING
+ * - VOICE
+ * - TOOL EXECUTION
+ * - LONG RESEARCH
+ * - CODE
+ * - ANALYSIS
+ */
+export type UltronWorkload =
+  | "FAST_CONVERSATION"
+  | "REASONING"
+  | "VOICE"
+  | "TOOL_EXECUTION"
+  | "LONG_RESEARCH"
+  | "CODE"
+  | "ANALYSIS";
+
+export interface ModelRouteDecision {
+  model: string;
+  workload: UltronWorkload;
+  temperature: number;
+  maxOutputTokens: number;
+  rationale: string;
+}
+
 export class ModelRouter {
-  public static route(request: ModelRouteRequest): ModelRouteDecision {
-    // 1. Strict Privacy Constraint: enforce local airgapped models
+  /**
+   * Determine model configuration based on workload string or legacy ModelRouteRequest
+   */
+  public static route(arg?: UltronWorkload | ModelRouteRequest): any {
+    // If called with legacy ModelRouteRequest object:
+    if (arg && typeof arg === "object" && "privacyStrict" in arg) {
+      return this.routeLegacy(arg as ModelRouteRequest);
+    }
+
+    const workload: UltronWorkload = (typeof arg === "string" ? arg : "FAST_CONVERSATION");
+    const textModel = process.env.GEMINI_TEXT_MODEL || "gemini-3.5-flash";
+    const reasoningModel = process.env.GEMINI_REASONING_MODEL || "gemini-3.5-flash";
+    const liveModel = process.env.GEMINI_LIVE_MODEL || "gemini-3.5-flash";
+
+    switch (workload) {
+      case "FAST_CONVERSATION":
+        return {
+          model: textModel,
+          workload,
+          temperature: 0.2,
+          maxOutputTokens: 1024,
+          rationale: "Lowest-latency Flash model selected for immediate conversational TTFB.",
+        };
+
+      case "VOICE":
+        return {
+          model: liveModel,
+          workload,
+          temperature: 0.2,
+          maxOutputTokens: 512,
+          rationale: "Gemini Live model configured for real-time 16kHz/24kHz streaming audio.",
+        };
+
+      case "TOOL_EXECUTION":
+        return {
+          model: textModel,
+          workload,
+          temperature: 0.0,
+          maxOutputTokens: 2048,
+          rationale: "Deterministic Flash model with zero temperature for reliable schema arguments.",
+        };
+
+      case "REASONING":
+      case "LONG_RESEARCH":
+      case "CODE":
+        return {
+          model: reasoningModel,
+          workload,
+          temperature: 0.1,
+          maxOutputTokens: 4096,
+          rationale: "Deep reasoning Pro model selected for DAG compilation, code synthesis and verification.",
+        };
+
+      case "ANALYSIS":
+      default:
+        return {
+          model: textModel,
+          workload,
+          temperature: 0.2,
+          maxOutputTokens: 2048,
+          rationale: "Standard balanced model routing.",
+        };
+    }
+  }
+
+  private static routeLegacy(request: ModelRouteRequest): LegacyModelRouteDecision {
     if (request.privacyStrict) {
       const localModels = REGISTERED_MODELS.filter((m) => m.isLocal && m.isAvailable);
       const selected =
@@ -100,10 +191,9 @@ export class ModelRouter {
       };
     }
 
-    // 2. Fast Interaction / Voice
     if (request.workload === "FAST_INTERACTION") {
-      const flash = REGISTERED_MODELS.find((m) => m.id === "gemini-1-5-flash")!;
-      const gpt4o = REGISTERED_MODELS.find((m) => m.id === "gpt-4o")!;
+      const flash = REGISTERED_MODELS.find((m) => m.id === "gemini-2-5-flash") || REGISTERED_MODELS[0];
+      const gpt4o = REGISTERED_MODELS.find((m) => m.id === "gpt-4o") || REGISTERED_MODELS[3];
       return {
         selectedModel: flash,
         fallbackChain: [gpt4o],
@@ -112,11 +202,10 @@ export class ModelRouter {
       };
     }
 
-    // 3. Code Synthesis
     if (request.workload === "CODE_SYNTHESIS") {
-      const sonnet = REGISTERED_MODELS.find((m) => m.id === "claude-3-5-sonnet")!;
-      const geminiPro = REGISTERED_MODELS.find((m) => m.id === "gemini-1-5-pro")!;
-      const qwenLocal = REGISTERED_MODELS.find((m) => m.id === "ollama-qwen-coder")!;
+      const sonnet = REGISTERED_MODELS.find((m) => m.id === "claude-3-5-sonnet") || REGISTERED_MODELS[2];
+      const geminiPro = REGISTERED_MODELS.find((m) => m.id === "gemini-2-5-pro") || REGISTERED_MODELS[1];
+      const qwenLocal = REGISTERED_MODELS.find((m) => m.id === "ollama-qwen-coder") || REGISTERED_MODELS[4];
       return {
         selectedModel: sonnet,
         fallbackChain: [geminiPro, qwenLocal],
@@ -125,16 +214,32 @@ export class ModelRouter {
       };
     }
 
-    // 4. Deep Reasoning & Architecture Planning
-    const primary = REGISTERED_MODELS.find((m) => m.id === "gemini-1-5-pro")!;
-    const sonnet = REGISTERED_MODELS.find((m) => m.id === "claude-3-5-sonnet")!;
-    const gpt4o = REGISTERED_MODELS.find((m) => m.id === "gpt-4o")!;
+    const primary = REGISTERED_MODELS.find((m) => m.id === "gemini-2-5-pro") || REGISTERED_MODELS[1];
+    const sonnet = REGISTERED_MODELS.find((m) => m.id === "claude-3-5-sonnet") || REGISTERED_MODELS[2];
+    const gpt4o = REGISTERED_MODELS.find((m) => m.id === "gpt-4o") || REGISTERED_MODELS[3];
 
     return {
       selectedModel: primary,
       fallbackChain: [sonnet, gpt4o],
       estimatedCostUsd: (request.promptLengthEst / 1000) * primary.costPer1kInputTokens,
-      rationale: "Selected for massive 2M token context window and high structural reasoning capability.",
+      rationale: "Selected for massive context window and high structural reasoning capability.",
     };
+  }
+
+  /**
+   * Infer workload category from user text prompt
+   */
+  public static inferWorkload(prompt: string): UltronWorkload {
+    const p = prompt.toLowerCase();
+    if (p.includes("code") || p.includes("function") || p.includes("refactor") || p.includes("typescript") || p.includes("script")) {
+      return "CODE";
+    }
+    if (p.includes("research") || p.includes("compare") || p.includes("analyze") || p.includes("market")) {
+      return "LONG_RESEARCH";
+    }
+    if (p.includes("plan") || p.includes("architect") || p.includes("dag") || p.includes("mission")) {
+      return "REASONING";
+    }
+    return "FAST_CONVERSATION";
   }
 }
