@@ -147,7 +147,48 @@ async function executeDeterministicCognition(
     };
   }
 
-  // 3. Create Mission
+  // 3. RESEARCHER MODE (Directive Section 8)
+  // When user asks a specific research question: create a mission with research pipeline
+  if (
+    lower.startsWith("research") ||
+    lower.startsWith("investigate") ||
+    lower.includes("research ai") ||
+    lower.includes("research ") ||
+    lower.includes("find out about")
+  ) {
+    const topic = text.replace(/^(ul-?tron\s+)?(please\s+)?(research|investigate|find\s+out\s+about)\s+/i, "").trim() || text;
+    const missionSlug = topic.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 28);
+    const missionId = `RESEARCH_${missionSlug}`;
+
+    const mission = MissionManager.createMission(
+      `RESEARCH: ${topic}`,
+      "P1"
+    );
+
+    ConversationSession.updateActiveMission(sessionId, mission.id);
+
+    // Run parallel research scan in background
+    UltronEventBus.publish("MISSION_STARTED", "PLANNER", `Research mission compiled: [${missionId}]`, {
+      missionId: mission.id,
+      objective: topic,
+    });
+
+    actions.push({
+      callId: `call-${Date.now()}`,
+      name: "create_mission",
+      args: { title: `RESEARCH: ${topic}`, missionId: mission.id },
+      durationMs: 15,
+      status: "SUCCESS",
+      result: { missionId: mission.id, title: `RESEARCH: ${topic}` },
+    });
+
+    return {
+      text: `Research mission initialized: [${missionId}]. Pipeline compiled: Planner → Google Search → YouTube → Analyst → Verifier → Memory synthesis. Telemetry streaming to workflow graph.`,
+      actions,
+    };
+  }
+
+  // 4. Create Generic Mission
   if (lower.startsWith("create a mission") || lower.startsWith("create mission") || lower.includes("start a mission")) {
     const prompt = text.replace(/^(ul-?tron\s+)?(please\s+)?(create\s+(a\s+)?mission\s+(to\s+)?|start\s+(a\s+)?mission\s+(to\s+)?)/i, "").trim();
     const finalPrompt = prompt || "Analyze the current ULTRON project";

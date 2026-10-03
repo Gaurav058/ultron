@@ -323,6 +323,11 @@ export class UltronVoiceEngine {
     }
   }
 
+  public stop(): void {
+    this.interruptSpeech();
+    this.stopListening();
+  }
+
   private startWaveformLoop(): void {
     if (!this.analyser) return;
 

@@ -1,6 +1,14 @@
+/**
+ * ULTRON COMMAND BAR
+ * Directive Sections 1, 8, 21
+ * Interactive command bar supporting text input, speech-to-text, file attachment,
+ * audio telemetry synthesis toggle, and reactive state management.
+ */
+
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
+import { UltronVoiceEngine } from "@/lib/voiceEngine";
 
 export interface UltronCommandBarProps {
   onSubmit: (command: string) => void;
@@ -13,36 +21,77 @@ export default function UltronCommandBar({
 }: UltronCommandBarProps) {
   const [inputVal, setInputVal] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  const [voiceSynthActive, setVoiceSynthActive] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputVal.trim() || isProcessing) return;
-    onSubmit(inputVal.trim());
+
+    let finalCommand = inputVal.trim();
+    if (attachedFiles.length > 0) {
+      finalCommand += ` [Attached Context: ${attachedFiles.join(", ")}]`;
+    }
+
+    onSubmit(finalCommand);
     setInputVal("");
+    setAttachedFiles([]);
   };
 
   const toggleMic = () => {
-    setIsRecording((prev) => !prev);
-    if (!isRecording && "webkitSpeechRecognition" in window) {
-      try {
-        const SpeechRecognition = (window as any).webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = "en-US";
-        recognition.onresult = (evt: any) => {
-          const transcript = evt.results[0][0].transcript;
-          setInputVal(transcript);
-          setIsRecording(false);
-          onSubmit(transcript);
-        };
-        recognition.onerror = () => setIsRecording(false);
-        recognition.onend = () => setIsRecording(false);
-        recognition.start();
-      } catch {
-        setIsRecording(false);
-      }
+    if (typeof window === "undefined") return;
+
+    if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
+      alert("Web Speech API is not supported in this browser. Please type commands directly.");
+      return;
     }
+
+    if (isRecording) {
+      setIsRecording(false);
+      return;
+    }
+
+    try {
+      const SpeechRecognition =
+        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => setIsRecording(true);
+      recognition.onresult = (evt: any) => {
+        const transcript = evt.results[0][0].transcript;
+        setInputVal(transcript);
+        setIsRecording(false);
+        onSubmit(transcript);
+      };
+      recognition.onerror = () => setIsRecording(false);
+      recognition.onend = () => setIsRecording(false);
+
+      recognition.start();
+    } catch {
+      setIsRecording(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileNames = Array.from(files).map((f) => f.name);
+      setAttachedFiles((prev) => [...prev, ...fileNames]);
+    }
+  };
+
+  const toggleVoiceSynth = () => {
+    setVoiceSynthActive((prev) => {
+      const next = !prev;
+      if (!next) {
+        UltronVoiceEngine.getInstance().stop();
+      }
+      return next;
+    });
   };
 
   return (
@@ -55,10 +104,19 @@ export default function UltronCommandBar({
         padding: "4px 8px",
       }}
     >
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        style={{ display: "none" }}
+        multiple
+      />
+
       {/* GLOWING MICROPHONE BUTTON */}
       <button
         type="button"
         onClick={toggleMic}
+        title={isRecording ? "Listening... Click to stop" : "Start Voice Direct Command"}
         style={{
           width: "42px",
           height: "42px",
@@ -102,11 +160,43 @@ export default function UltronCommandBar({
           background: "rgba(6, 19, 41, 0.95)",
         }}
       >
+        {/* Attachment chips */}
+        {attachedFiles.map((fn, idx) => (
+          <span
+            key={idx}
+            style={{
+              background: "rgba(22, 135, 255, 0.2)",
+              border: "1px solid #00D9FF",
+              borderRadius: "4px",
+              padding: "1px 6px",
+              fontSize: "9.5px",
+              color: "#00D9FF",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            📎 {fn.slice(0, 15)}
+            <span
+              onClick={() => setAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
+              style={{ cursor: "pointer", fontWeight: 700 }}
+            >
+              ×
+            </span>
+          </span>
+        ))}
+
         <input
           type="text"
           value={inputVal}
           onChange={(e) => setInputVal(e.target.value)}
-          placeholder={isProcessing ? "ULTRON executing intent..." : "Ask ULTRON to research, build, analyze, automate..."}
+          placeholder={
+            isProcessing
+              ? "ULTRON executing research pipeline..."
+              : isRecording
+              ? "Listening to speech input..."
+              : "Ask ULTRON to research, build, analyze, automate... (e.g. 'Research AI startups in Dubai')"
+          }
           disabled={isProcessing}
           style={{
             flex: 1,
@@ -119,19 +209,22 @@ export default function UltronCommandBar({
           }}
         />
 
-        {/* RIGHT CONTROLS: Attachment, Voice waveform, Send button */}
+        {/* RIGHT CONTROLS: Attachment, Voice waveform toggle, Send button */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {/* Attachment */}
           <button
             type="button"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach data file / document"
             style={{
               background: "transparent",
               border: "none",
-              color: "#7187A5",
+              color: attachedFiles.length > 0 ? "#00D9FF" : "#7187A5",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              padding: "3px",
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -142,14 +235,17 @@ export default function UltronCommandBar({
           {/* Voice Waveform toggle */}
           <button
             type="button"
+            onClick={toggleVoiceSynth}
+            title={voiceSynthActive ? "Voice Audio Response: ON (Click to mute)" : "Voice Audio Response: MUTED"}
             style={{
               background: "transparent",
               border: "none",
-              color: "#7187A5",
+              color: voiceSynthActive ? "#00E6A8" : "#435873",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              padding: "3px",
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -164,7 +260,7 @@ export default function UltronCommandBar({
           {/* Send Button */}
           <button
             type="submit"
-            disabled={isProcessing || !inputVal.trim()}
+            disabled={isProcessing || (!inputVal.trim() && attachedFiles.length === 0)}
             style={{
               width: "28px",
               height: "28px",

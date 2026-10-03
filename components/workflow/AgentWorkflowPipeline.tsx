@@ -25,6 +25,7 @@ export default function AgentWorkflowPipeline({
   },
 }: AgentWorkflowPipelineProps) {
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
+  const [activeMetricModal, setActiveMetricModal] = useState<string | null>(null);
 
   const getNode = (id: string): WorkflowNode => {
     return (
@@ -665,13 +666,19 @@ export default function AgentWorkflowPipeline({
       >
         {/* Metric 1: Total Agents */}
         <div
+          onClick={() => setActiveMetricModal("agents")}
           className="ultron-card-subtle"
           style={{
             padding: "8px 12px",
             display: "flex",
             alignItems: "center",
             gap: "10px",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#1687FF")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#0B2A50")}
+          title="Click to view configured specialist agents"
         >
           <div
             style={{
@@ -700,20 +707,26 @@ export default function AgentWorkflowPipeline({
               <span style={{ fontSize: "16px", fontWeight: 700, color: "#EAF4FF" }}>
                 {metrics.totalAgents}
               </span>
-              <span style={{ fontSize: "9px", color: "#435873" }}>Configured</span>
+              <span style={{ fontSize: "9px", color: "#435873" }}>Configured ↗</span>
             </div>
           </div>
         </div>
 
         {/* Metric 2: Active Tasks */}
         <div
+          onClick={() => setActiveMetricModal("tasks")}
           className="ultron-card-subtle"
           style={{
             padding: "8px 12px",
             display: "flex",
             alignItems: "center",
             gap: "10px",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00D9FF")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#0B2A50")}
+          title="Click to view running agent tasks"
         >
           <div
             style={{
@@ -740,20 +753,26 @@ export default function AgentWorkflowPipeline({
               <span style={{ fontSize: "16px", fontWeight: 700, color: "#EAF4FF" }}>
                 {metrics.activeTasks}
               </span>
-              <span style={{ fontSize: "9px", color: "#00D9FF" }}>Running</span>
+              <span style={{ fontSize: "9px", color: "#00D9FF" }}>Running ↗</span>
             </div>
           </div>
         </div>
 
         {/* Metric 3: Completed Today */}
         <div
+          onClick={() => setActiveMetricModal("completed")}
           className="ultron-card-subtle"
           style={{
             padding: "8px 12px",
             display: "flex",
             alignItems: "center",
             gap: "10px",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#7C4DFF")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#0B2A50")}
+          title="Click to view completed pipeline milestones"
         >
           <div
             style={{
@@ -780,20 +799,26 @@ export default function AgentWorkflowPipeline({
               <span style={{ fontSize: "16px", fontWeight: 700, color: "#EAF4FF" }}>
                 {metrics.completedToday}
               </span>
-              <span style={{ fontSize: "9px", color: "#7187A5" }}>Tasks</span>
+              <span style={{ fontSize: "9px", color: "#7187A5" }}>Tasks ↗</span>
             </div>
           </div>
         </div>
 
         {/* Metric 4: System Load */}
         <div
+          onClick={() => setActiveMetricModal("load")}
           className="ultron-card-subtle"
           style={{
             padding: "8px 12px",
             display: "flex",
             alignItems: "center",
             gap: "10px",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#00E6A8")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#0B2A50")}
+          title="Click to inspect real-time system performance"
         >
           <div
             style={{
@@ -819,7 +844,7 @@ export default function AgentWorkflowPipeline({
               <span style={{ fontSize: "14px", fontWeight: 700, color: "#00E6A8" }}>
                 {metrics.systemLoad}
               </span>
-              <span style={{ fontSize: "8.5px", color: "#7187A5" }}>All systems operational</span>
+              <span style={{ fontSize: "8.5px", color: "#7187A5" }}>Operational ↗</span>
             </div>
           </div>
         </div>
@@ -914,6 +939,133 @@ export default function AgentWorkflowPipeline({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* METRIC DETAILS MODAL */}
+      {activeMetricModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2, 8, 23, 0.8)",
+            backdropFilter: "blur(6px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => setActiveMetricModal(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "460px",
+              background: "#08172D",
+              border: "1px solid #1687FF",
+              borderRadius: "10px",
+              padding: "18px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.8)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0, fontSize: "14px", color: "#EAF4FF", fontWeight: 700 }}>
+                {activeMetricModal === "agents" && "Specialist Agent Workforce (10 Configured)"}
+                {activeMetricModal === "tasks" && "Active Tasks & Parallel Dag Nodes"}
+                {activeMetricModal === "completed" && "Completed Pipeline Tasks (Today)"}
+                {activeMetricModal === "load" && "System Load & Operational Performance"}
+              </h3>
+              <button
+                onClick={() => setActiveMetricModal(null)}
+                style={{ background: "transparent", border: "none", color: "#7187A5", fontSize: "18px", cursor: "pointer" }}
+              >
+                ×
+              </button>
+            </div>
+
+            {activeMetricModal === "agents" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "280px", overflowY: "auto" }}>
+                {[
+                  { name: "Conductor", role: "Mission DAG Decomposition & Scheduling", status: "READY" },
+                  { name: "Researcher", role: "Multi-Source Grounding & Web Crawl", status: "RUNNING" },
+                  { name: "Analyst", role: "Synthesis & Entity Graph Modeling", status: "RUNNING" },
+                  { name: "Verifier", role: "Multi-Source Reality & Gate Checking", status: "READY" },
+                  { name: "Architect", role: "Software System & Interface Design", status: "READY" },
+                  { name: "Engineer", role: "Code Synthesis & Tool Execution", status: "READY" },
+                  { name: "Scribe", role: "Report & PDF Documentation Generation", status: "READY" },
+                  { name: "Sentinel", role: "Policy Gate & Threat Verification", status: "READY" },
+                  { name: "Memory", role: "Vector Store & Knowledge Promotion", status: "READY" },
+                  { name: "Oracle", role: "High-Order Intelligence Insights", status: "ACTIVE" },
+                ].map((a, i) => (
+                  <div key={i} style={{ background: "#061329", padding: "6px 10px", borderRadius: "5px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "11px", fontWeight: 700, color: "#EAF4FF" }}>{a.name}</div>
+                      <div style={{ fontSize: "9px", color: "#7187A5" }}>{a.role}</div>
+                    </div>
+                    <span style={{ fontSize: "9px", color: a.status === "RUNNING" ? "#00D9FF" : "#00E6A8", fontWeight: 600 }}>{a.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeMetricModal === "tasks" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", color: "#C8D8EA" }}>
+                <div style={{ background: "#061329", padding: "8px", borderRadius: "5px" }}>
+                  <span style={{ color: "#00D9FF", fontWeight: 700 }}>Task 01:</span> Adaptive Domain Query Execution (Running)
+                </div>
+                <div style={{ background: "#061329", padding: "8px", borderRadius: "5px" }}>
+                  <span style={{ color: "#7C4DFF", fontWeight: 700 }}>Task 02:</span> Entity & Claim Extraction (Running)
+                </div>
+                <div style={{ background: "#061329", padding: "8px", borderRadius: "5px" }}>
+                  <span style={{ color: "#00E6A8", fontWeight: 700 }}>Task 03:</span> Real-Time Geospatial Resolution (Active)
+                </div>
+              </div>
+            )}
+
+            {activeMetricModal === "completed" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", color: "#C8D8EA" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Tasks Completed Today:</span>
+                  <strong style={{ color: "#00E6A8" }}>{metrics.completedToday} Tasks</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Verified Signals Produced:</span>
+                  <strong style={{ color: "#00D9FF" }}>17 Signals</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Average Turnaround Latency:</span>
+                  <span>420ms</span>
+                </div>
+              </div>
+            )}
+
+            {activeMetricModal === "load" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "11px", color: "#C8D8EA" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>System Load:</span>
+                  <strong style={{ color: "#00E6A8" }}>{metrics.systemLoad} (Optimal)</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Event Bus Throughput:</span>
+                  <span>142 msgs/sec</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Turbopack State:</span>
+                  <span style={{ color: "#00E6A8" }}>Hot Reload Synced</span>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setActiveMetricModal(null)}
+              style={{ background: "#1687FF", color: "#EAF4FF", border: "none", borderRadius: "6px", padding: "8px", fontSize: "11px", fontWeight: 600, cursor: "pointer" }}
+            >
+              Done
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -1,3 +1,10 @@
+/**
+ * ULTRON MISSIONS & CHAT PANEL
+ * Directive Sections 1, 8, 16
+ * Dual-tab interface for active autonomous missions and conversational chat stream.
+ * Includes interactive New Mission creation modal and real-time status indicators.
+ */
+
 "use client";
 
 import React, { useState } from "react";
@@ -7,7 +14,7 @@ export interface MissionsAndChatPanelProps {
   missions: MissionItem[];
   activeMissionId?: string;
   onSelectMission?: (id: string) => void;
-  onNewMission?: () => void;
+  onNewMission?: (objective: string) => void;
   chatMessages: ChatMessage[];
   onSendMessage?: (text: string) => void;
   isProcessing?: boolean;
@@ -24,12 +31,24 @@ export default function MissionsAndChatPanel({
 }: MissionsAndChatPanelProps) {
   const [activeTab, setActiveTab] = useState<"missions" | "chat">("missions");
   const [inputText, setInputText] = useState("");
+  const [showNewMissionModal, setShowNewMissionModal] = useState(false);
+  const [newMissionObjective, setNewMissionObjective] = useState("");
+  const [newMissionCategory, setNewMissionCategory] = useState("RESEARCH");
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputText.trim() || isProcessing) return;
     onSendMessage?.(inputText.trim());
     setInputText("");
+  };
+
+  const handleCreateMissionSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newMissionObjective.trim()) return;
+    const finalObjective = `${newMissionCategory}: ${newMissionObjective.trim()}`;
+    onNewMission?.(finalObjective);
+    setNewMissionObjective("");
+    setShowNewMissionModal(false);
   };
 
   const activeCount = missions.filter(
@@ -134,7 +153,7 @@ export default function MissionsAndChatPanel({
 
           {/* + New Mission Action Button */}
           <button
-            onClick={onNewMission}
+            onClick={() => setShowNewMissionModal(true)}
             style={{
               background: "rgba(0, 217, 255, 0.08)",
               border: "1px solid rgba(0, 217, 255, 0.4)",
@@ -200,7 +219,6 @@ export default function MissionsAndChatPanel({
               {/* Row 1: Icon, Title, Status & Progress */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "7px", flex: 1, minWidth: 0 }}>
-                  {/* Category / Initial Badge */}
                   <div
                     style={{
                       width: "18px",
@@ -304,7 +322,7 @@ export default function MissionsAndChatPanel({
               {/* Row 3: Relative Time */}
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "2px" }}>
                 <span style={{ fontSize: "9.5px", color: "#435873" }}>
-                  {mission.timeAgo || "2h 12m ago"}
+                  {mission.timeAgo || "Active"}
                 </span>
               </div>
             </div>
@@ -466,6 +484,128 @@ export default function MissionsAndChatPanel({
           </button>
         </form>
       </div>
+
+      {/* NEW MISSION CREATION MODAL */}
+      {showNewMissionModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2, 8, 23, 0.8)",
+            backdropFilter: "blur(6px)",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => setShowNewMissionModal(false)}
+        >
+          <form
+            onSubmit={handleCreateMissionSubmit}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "440px",
+              background: "#08172D",
+              border: "1px solid #00D9FF",
+              borderRadius: "10px",
+              padding: "20px",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 217, 255, 0.3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ margin: 0, fontSize: "15px", color: "#EAF4FF", fontWeight: 700 }}>
+                Initialize ULTRON Mission
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowNewMissionModal(false)}
+                style={{ background: "transparent", border: "none", color: "#7187A5", fontSize: "18px", cursor: "pointer" }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "11px", color: "#7187A5" }}>Category</label>
+              <select
+                value={newMissionCategory}
+                onChange={(e) => setNewMissionCategory(e.target.value)}
+                style={{
+                  background: "#061329",
+                  border: "1px solid #0B2A50",
+                  borderRadius: "6px",
+                  padding: "7px 10px",
+                  color: "#EAF4FF",
+                  fontSize: "12px",
+                  outline: "none",
+                }}
+              >
+                <option value="RESEARCH">RESEARCH (Google Grounding & Verification)</option>
+                <option value="ANALYSIS">ANALYSIS (Competitive & Financial)</option>
+                <option value="ENGINEERING">ENGINEERING (Software & Code Synthesis)</option>
+                <option value="GEOSPATIAL">GEOSPATIAL (Earth Intelligence)</option>
+              </select>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <label style={{ fontSize: "11px", color: "#7187A5" }}>Mission Objective</label>
+              <textarea
+                rows={3}
+                placeholder="e.g. Research AI startups in Dubai, analyze funding and models"
+                value={newMissionObjective}
+                onChange={(e) => setNewMissionObjective(e.target.value)}
+                required
+                style={{
+                  background: "#061329",
+                  border: "1px solid #0B2A50",
+                  borderRadius: "6px",
+                  padding: "8px 10px",
+                  color: "#EAF4FF",
+                  fontSize: "12px",
+                  outline: "none",
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "6px" }}>
+              <button
+                type="button"
+                onClick={() => setShowNewMissionModal(false)}
+                style={{
+                  background: "#061329",
+                  border: "1px solid #0B2A50",
+                  borderRadius: "6px",
+                  padding: "7px 14px",
+                  color: "#7187A5",
+                  fontSize: "11.5px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{
+                  background: "linear-gradient(135deg, #1687FF 0%, #00D9FF 100%)",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "7px 16px",
+                  color: "#EAF4FF",
+                  fontSize: "11.5px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Compile & Launch
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

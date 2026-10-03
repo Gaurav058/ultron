@@ -183,4 +183,39 @@ export class MemoryEngine {
       authorAgent,
     };
   }
+
+  /**
+   * Promote verified intelligence signal to durable memory (Directive Section 14)
+   * Only VERIFIED signals with high confidence (>0.85) are promoted into Memory.
+   */
+  public static promoteSignalToMemory(signal: {
+    id: string;
+    title: string;
+    summary: string;
+    claims: string[];
+    entities: string[];
+    sources: { source: string; url: string }[];
+    confidence: number;
+    verificationStatus: string;
+  }): MemoryItem | null {
+    if (signal.verificationStatus !== "VERIFIED" || signal.confidence < 0.85) {
+      // Unverified information remains Signal
+      return null;
+    }
+
+    const primarySources = signal.sources.map((s) => `${s.source} (${s.url})`).join(", ");
+    const content = `${signal.summary}\n\nVerified Claims:\n${signal.claims
+      .map((c) => `• ${c}`)
+      .join("\n")}\n\nSources: ${primarySources}`;
+
+    return this.addMemoryItem({
+      type: "KNOWLEDGE",
+      title: `Verified Intelligence: ${signal.title}`,
+      content,
+      source: "GLOBAL_INTELLIGENCE_VERIFIER",
+      confidence: signal.confidence,
+      scope: "GLOBAL",
+      tags: ["verified-intelligence", ...signal.entities.slice(0, 5)],
+    });
+  }
 }

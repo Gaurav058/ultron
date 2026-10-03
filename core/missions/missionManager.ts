@@ -139,6 +139,18 @@ export class MissionManager {
     return mission;
   }
 
+  public static updateMissionStatus(missionId: string, status: Mission["status"]): boolean {
+    const mission = this.getMission(missionId);
+    if (!mission) return false;
+    mission.status = status;
+    mission.updatedAt = new Date().toISOString();
+    if (status === "COMPLETED") {
+      mission.completedAt = new Date().toISOString();
+    }
+    this.notify();
+    return true;
+  }
+
   public static pauseMission(missionId: string): boolean {
     const mission = this.getMission(missionId);
     if (!mission) return false;

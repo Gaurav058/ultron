@@ -1,12 +1,35 @@
+export type SubsystemHealth = "online" | "degraded" | "offline" | "unknown";
+
 export interface SystemStatus {
-  api: "online" | "offline" | "unknown";
-  database: "online" | "offline" | "unknown";
-  memory: "online" | "offline" | "unknown";
-  agentRuntime: "online" | "offline" | "unknown";
-  toolFabric: "online" | "offline" | "unknown";
-  eventBus: "online" | "offline" | "unknown";
-  webSocket?: "online" | "offline" | "unknown";
-  core?: "online" | "offline" | "unknown";
+  core: SubsystemHealth;
+  api: SubsystemHealth;
+  database: SubsystemHealth;
+  memory: SubsystemHealth;
+  agentRuntime: SubsystemHealth;
+  toolFabric: SubsystemHealth;
+  eventBus: SubsystemHealth;
+  webSocket?: SubsystemHealth;
+  scheduler?: SubsystemHealth;
+  researchEngine?: SubsystemHealth;
+  googleSearch?: SubsystemHealth;
+  youtube?: SubsystemHealth;
+  maps?: SubsystemHealth;
+  verification?: SubsystemHealth;
+}
+
+export interface SubsystemDetail {
+  name: string;
+  status: SubsystemHealth;
+  latencyMs?: number;
+  message?: string;
+  lastChecked: string;
+}
+
+export interface SystemHealthReport {
+  overall: SubsystemHealth;
+  status: SystemStatus;
+  subsystems: Record<string, SubsystemDetail>;
+  timestamp: string;
 }
 
 export interface SystemInfoMetadata {
@@ -15,4 +38,5 @@ export interface SystemInfoMetadata {
   voiceModel: string;
   uptime: string;
   environment: "Production" | "Development" | "Staging";
+  activeKeyConfigured?: boolean;
 }

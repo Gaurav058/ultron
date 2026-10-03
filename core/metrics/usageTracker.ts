@@ -1,6 +1,9 @@
 /**
- * ULTRON Usage & Cost Tracker (Section 35)
- * Accurately aggregates tokens, model usage, tool calls, and execution metrics.
+ * ULTRON USAGE & COST CONTROL TELEMETRY
+ * Directive Section 20
+ * Tracks Gemini API requests, search grounding, Maps calls, YouTube calls, tokens,
+ * background missions, and research duration with daily and monthly aggregations.
+ * Never exposes secrets.
  */
 
 export interface UsageRecord {
@@ -15,15 +18,49 @@ export interface UsageRecord {
   workload: string;
 }
 
+export interface CostAnalyticsReport {
+  daily: {
+    geminiRequests: number;
+    searchGroundingRequests: number;
+    mapsCalls: number;
+    youtubeCalls: number;
+    inputTokens: number;
+    outputTokens: number;
+    backgroundMissions: number;
+    totalResearchDurationMs: number;
+    estimatedCostUsd: number;
+  };
+  monthly: {
+    geminiRequests: number;
+    searchGroundingRequests: number;
+    mapsCalls: number;
+    youtubeCalls: number;
+    inputTokens: number;
+    outputTokens: number;
+    backgroundMissions: number;
+    totalResearchDurationMs: number;
+    estimatedCostUsd: number;
+  };
+  allTime: {
+    totalRequests: number;
+    totalTokens: number;
+    totalCostUsd: number;
+    avgLatencyMs: number;
+  };
+  recentRecords: UsageRecord[];
+}
+
 export class UsageTracker {
   private static records: UsageRecord[] = [];
 
-  // Approximate Gemini standard pricing per 1k tokens
+  // Standard pricing table ($ per 1k tokens)
   private static pricingTable: Record<string, { inputPer1k: number; outputPer1k: number }> = {
     "gemini-2.5-flash": { inputPer1k: 0.000075, outputPer1k: 0.0003 },
     "gemini-2.5-pro": { inputPer1k: 0.00125, outputPer1k: 0.005 },
     "gemini-1.5-flash": { inputPer1k: 0.000075, outputPer1k: 0.0003 },
     "gemini-1.5-pro": { inputPer1k: 0.00125, outputPer1k: 0.005 },
+    "Google Maps Geocoding API": { inputPer1k: 0.005, outputPer1k: 0 },
+    "YouTube Data API": { inputPer1k: 0.001, outputPer1k: 0 },
   };
 
   public static recordUsage(params: {
@@ -52,36 +89,87 @@ export class UsageTracker {
     };
 
     this.records.unshift(record);
-    if (this.records.length > 200) {
+    if (this.records.length > 500) {
       this.records.pop();
     }
 
     return record;
   }
 
-  public static getAggregateMetrics(): {
-    totalInputTokens: number;
-    totalOutputTokens: number;
-    totalCostUsd: number;
-    totalRequests: number;
-    avgLatencyMs: number;
-  } {
-    const totalRequests = this.records.length;
-    if (totalRequests === 0) {
-      return { totalInputTokens: 0, totalOutputTokens: 0, totalCostUsd: 0, totalRequests: 0, avgLatencyMs: 0 };
-    }
+  public static getCostAnalytics(): CostAnalyticsReport {
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-    const totalInputTokens = this.records.reduce((sum, r) => sum + r.inputTokens, 0);
-    const totalOutputTokens = this.records.reduce((sum, r) => sum + r.outputTokens, 0);
-    const totalCostUsd = this.records.reduce((sum, r) => sum + r.estimatedCostUsd, 0);
-    const avgLatencyMs = Math.round(this.records.reduce((sum, r) => sum + r.durationMs, 0) / totalRequests);
+    const dailyRecords = this.records.filter((r) => new Date(r.timestamp).getTime() >= oneDayAgo);
+    const monthlyRecords = this.records.filter((r) => new Date(r.timestamp).getTime() >= thirtyDaysAgo);
+
+    const aggregateSlice = (slice: UsageRecord[]) => {
+      let geminiRequests = 0;
+      let searchGroundingRequests = 0;
+      let mapsCalls = 0;
+      let youtubeCalls = 0;
+      let backgroundMissions = 0;
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let totalResearchDurationMs = 0;
+      let estimatedCostUsd = 0;
+
+      for (const r of slice) {
+        inputTokens += r.inputTokens;
+        outputTokens += r.outputTokens;
+        totalResearchDurationMs += r.durationMs;
+        estimatedCostUsd += r.estimatedCostUsd;
+
+        if (r.workload === "SEARCH_GROUNDING") searchGroundingRequests++;
+        else if (r.workload === "MAPS_GEOCODING") mapsCalls++;
+        else if (r.workload.includes("YOUTUBE")) youtubeCalls++;
+        else if (r.workload.includes("BACKGROUND") || r.workload.includes("SCAN")) backgroundMissions++;
+        else geminiRequests++;
+      }
+
+      return {
+        geminiRequests,
+        searchGroundingRequests,
+        mapsCalls,
+        youtubeCalls,
+        inputTokens,
+        outputTokens,
+        backgroundMissions,
+        totalResearchDurationMs,
+        estimatedCostUsd: Number(estimatedCostUsd.toFixed(4)),
+      };
+    };
+
+    const totalRequests = this.records.length;
+    const totalTokens = this.records.reduce((sum, r) => sum + r.inputTokens + r.outputTokens, 0);
+    const totalCostUsd = Number(this.records.reduce((sum, r) => sum + r.estimatedCostUsd, 0).toFixed(4));
+    const avgLatencyMs =
+      totalRequests > 0
+        ? Math.round(this.records.reduce((sum, r) => sum + r.durationMs, 0) / totalRequests)
+        : 0;
 
     return {
-      totalInputTokens,
-      totalOutputTokens,
-      totalCostUsd: Number(totalCostUsd.toFixed(4)),
-      totalRequests,
-      avgLatencyMs,
+      daily: aggregateSlice(dailyRecords),
+      monthly: aggregateSlice(monthlyRecords),
+      allTime: {
+        totalRequests,
+        totalTokens,
+        totalCostUsd,
+        avgLatencyMs,
+      },
+      recentRecords: this.records.slice(0, 15),
+    };
+  }
+
+  public static getAggregateMetrics() {
+    const report = this.getCostAnalytics();
+    return {
+      totalInputTokens: report.monthly.inputTokens,
+      totalOutputTokens: report.monthly.outputTokens,
+      totalCostUsd: report.allTime.totalCostUsd,
+      totalRequests: report.allTime.totalRequests,
+      avgLatencyMs: report.allTime.avgLatencyMs,
     };
   }
 

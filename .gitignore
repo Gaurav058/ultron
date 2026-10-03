@@ -25,3 +25,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 reference-ui-extracted/
+/data/

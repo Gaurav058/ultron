@@ -27,7 +27,6 @@ import ApprovalModal from "../deck/ApprovalModal";
 
 import { Mission, PolicyGate } from "../../core/types/mission";
 import { MissionManager } from "../../core/missions/missionManager";
-import { RealityChecker } from "../../core/verification/realityChecker";
 import { UltronDoctor } from "../../core/runtime/ultronDoctor";
 import { UltronEventBus, UltronEvent } from "../../core/events/eventBus";
 import { UltronVoiceEngine } from "@/lib/voiceEngine";
@@ -73,7 +72,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
 
   // Global Intelligence & News State
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation>(DEMO_LOCATION_DUBAI);
-  const [newsStories] = useState<NewsStory[]>(DEMO_NEWS_STORIES);
+  const [newsStories, setNewsStories] = useState<NewsStory[]>(DEMO_NEWS_STORIES);
 
   // Activity Feed
   const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([
@@ -87,10 +86,9 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
 
   // System Health & Diagnostics
   const [systemStatus, setSystemStatus] = useState<SystemStatus>(DEMO_SYSTEM_STATUS);
-  const [activeModel, setActiveModel] = useState<string>("Gemini 1.5 Pro");
-  const [doctorHealth, setDoctorHealth] = useState<string>("OPTIMAL");
+  const [activeModel, setActiveModel] = useState<string>("Gemini 2.5 Flash");
 
-  // Initialize MissionManager & Check Health
+  // Initialize MissionManager & Fetch Live Data on mount
   useEffect(() => {
     MissionManager.initialize();
     const unsubscribe = MissionManager.subscribe((updated) => {
@@ -98,71 +96,118 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
     });
 
     // Check Gemini API Health
-    fetch("/api/health/gemini")
+    fetch("/api/health")
       .then((res) => res.json())
       .then((data) => {
-        if (data.configured && data.model) {
-          setActiveModel(data.model);
-          setSystemStatus((prev) => ({ ...prev, api: "online" }));
+        if (data.status) {
+          setSystemStatus(data.status);
         }
       })
       .catch(() => {
         setSystemStatus((prev) => ({ ...prev, api: "offline" }));
       });
 
+    // Fetch verified top news
+    fetch("/api/news?limit=7")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.stories && Array.isArray(data.stories) && data.stories.length > 0) {
+          setNewsStories(data.stories);
+        }
+      })
+      .catch(() => {});
+
     // Run Doctor Diagnostics
-    UltronDoctor.runDiagnostics().then((report) => {
-      setDoctorHealth(report.overallHealth === "HEALTHY" ? "OPTIMAL" : report.overallHealth);
-    });
+    UltronDoctor.runDiagnostics().catch(() => {});
 
     return unsubscribe;
   }, []);
 
-  // Subscribe to Unified Event Bus
+  // Connect to SSE Real-time Intelligence Event Stream (/api/events)
   useEffect(() => {
-    const unsubscribe = UltronEventBus.subscribe("*", (evt: UltronEvent) => {
-      const timeStr = new Date(evt.timestamp).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource("/api/events");
+      eventSource.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed && parsed.type) {
+            handleLiveEvent(parsed);
+          }
+        } catch {}
+      };
+    } catch (e) {
+      console.warn("SSE connection notice:", e);
+    }
 
-      let statusBadge = "ONLINE";
-      if (evt.type.includes("ERROR") || evt.type.includes("FAILED")) statusBadge = "ERROR";
-      else if (evt.type.includes("APPROVAL")) statusBadge = "WARN";
-
-      setActivityFeed((prev) => [
-        {
-          timestamp: timeStr,
-          source: evt.source || "Agent",
-          event: evt.summary,
-          status: statusBadge,
-        },
-        ...prev.slice(0, 15),
-      ]);
-
-      // If tool or agent started, reflect dynamically in workflow nodes
-      if (evt.type === "TOOL_STARTED") {
-        setWorkflowNodes((nodes) =>
-          nodes.map((n) =>
-            n.id === "node-websearch"
-              ? { ...n, status: "running" }
-              : n
-          )
-        );
-      } else if (evt.type === "TOOL_COMPLETED") {
-        setWorkflowNodes((nodes) =>
-          nodes.map((n) =>
-            n.id === "node-websearch"
-              ? { ...n, status: "completed" }
-              : n
-          )
-        );
-      }
+    // Also subscribe locally to in-process UltronEventBus
+    const unsubscribeBus = UltronEventBus.subscribe("*", (evt: UltronEvent) => {
+      handleLiveEvent(evt);
     });
 
-    return unsubscribe;
+    return () => {
+      if (eventSource) eventSource.close();
+      unsubscribeBus();
+    };
   }, []);
+
+  // Process live events from SSE / EventBus
+  const handleLiveEvent = (evt: UltronEvent) => {
+    const timeStr = new Date(evt.timestamp || Date.now()).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
+    let statusBadge = "ONLINE";
+    if (evt.type.includes("ERROR") || evt.type.includes("FAILED")) statusBadge = "ERROR";
+    else if (evt.type.includes("APPROVAL")) statusBadge = "WARN";
+
+    setActivityFeed((prev) => [
+      {
+        timestamp: timeStr,
+        source: evt.source || "Agent",
+        event: evt.summary,
+        status: statusBadge,
+      },
+      ...prev.slice(0, 15),
+    ]);
+
+    // Animate workflow nodes live (Directive Section 8 & 16)
+    if (evt.type === "TOOL_STARTED" || evt.type === "AGENT_TASK_STARTED") {
+      setWorkflowNodes((nodes) =>
+        nodes.map((n) => {
+          if (
+            (evt.source === "Researcher" && n.id === "node-researcher") ||
+            (evt.source === "Analyst" && n.id === "node-analyst") ||
+            (evt.source === "Verifier" && n.id === "node-verifier") ||
+            (n.id === "node-websearch" && evt.summary.toLowerCase().includes("search"))
+          ) {
+            return { ...n, status: "running", progress: 60 };
+          }
+          return n;
+        })
+      );
+    } else if (evt.type === "TOOL_COMPLETED" || evt.type === "MISSION_COMPLETED") {
+      setWorkflowNodes((nodes) =>
+        nodes.map((n) =>
+          n.id === "node-websearch" || n.id === "node-researcher" || n.id === "node-verifier"
+            ? { ...n, status: "completed", progress: 100 }
+            : n
+        )
+      );
+    } else if (evt.type === "NEWS_UPDATED") {
+      // Incremental refresh of news
+      fetch("/api/news?limit=7")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.stories && Array.isArray(data.stories)) {
+            setNewsStories(data.stories);
+          }
+        })
+        .catch(() => {});
+    }
+  };
 
   // Combined UI Missions: map backend missions or fallback to DEMO_MISSIONS
   const uiMissions: MissionItem[] = useMemo(() => {
@@ -189,17 +234,16 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         progress,
         createdAt: bm.createdAt,
         updatedAt: bm.updatedAt,
-        timeAgo: "Just now",
+        timeAgo: "Active",
       };
     });
 
-    // Merge backend missions at top, followed by demo reference items
     const backendIds = new Set(mapped.map((m) => m.id));
     const extraDemos = DEMO_MISSIONS.filter((dm) => !backendIds.has(dm.id));
     return [...mapped, ...extraDemos];
   }, [backendMissions]);
 
-  // Handle Command Submission -> POST /api/voice/chat
+  // Handle Command Submission -> Dedicated Research Mission or Voice Chat
   const handleCommandSubmit = async (commandText: string) => {
     if (!commandText.trim()) return;
 
@@ -216,12 +260,66 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
 
     setChatMessages((prev) => [...prev, newChat]);
 
-    UltronEventBus.publish(
-      "SYSTEM_STATE_CHANGED",
-      "USER",
-      `Directing intent to Gemini kernel: "${commandText.slice(0, 38)}..."`
-    );
+    const isResearchIntent =
+      commandText.toLowerCase().startsWith("research") ||
+      commandText.toLowerCase().startsWith("investigate") ||
+      commandText.toLowerCase().includes("research ai");
 
+    // RESEARCHER MODE (Directive Section 8)
+    if (isResearchIntent) {
+      // Immediately animate workflow graph
+      setWorkflowNodes((nodes) =>
+        nodes.map((n) => {
+          if (n.id === "node-user") return { ...n, status: "completed", progress: 100 };
+          if (n.id === "node-conductor") return { ...n, status: "running", progress: 50 };
+          if (n.id === "node-researcher") return { ...n, status: "running", progress: 40 };
+          if (n.id === "node-websearch") return { ...n, status: "running", progress: 80 };
+          return n;
+        })
+      );
+
+      try {
+        const res = await fetch("/api/research/mission", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ objective: commandText }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const replyText = `Research Mission [${data.missionTitle}] completed. ${data.sources.length} sources analyzed with status ${data.verificationStatus}. ${data.summary.slice(0, 240)}...`;
+
+          setChatMessages((prev) => [
+            ...prev,
+            {
+              id: `chat-b-${Date.now()}`,
+              sender: "ultron",
+              text: replyText,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              badge: "Mission Verified",
+              missionId: data.missionId,
+            },
+          ]);
+
+          // Update workflow nodes to completed
+          setWorkflowNodes((nodes) =>
+            nodes.map((n) => ({ ...n, status: "completed", progress: 100 }))
+          );
+
+          try {
+            UltronVoiceEngine.getInstance().speak(replyText.slice(0, 150));
+          } catch {}
+
+          setBackendMissions(MissionManager.getMissions());
+          setIsProcessing(false);
+          return;
+        }
+      } catch (e) {
+        console.warn("Direct research API error, falling back to voice pipeline:", e);
+      }
+    }
+
+    // Standard conversational pipeline
     try {
       const res = await fetch("/api/voice/chat", {
         method: "POST",
@@ -242,23 +340,18 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
 
       let createdMissionId: string | undefined;
 
-      // Process actions / tools executed by Gemini
       if (data.actions && data.actions.length > 0) {
         for (const action of data.actions) {
           const toolName = action.name || action.toolName;
-          UltronEventBus.publish("TOOL_STARTED", "AGENT", `Executed Gemini tool: ${toolName}`);
-
           if (toolName === "create_mission" && action.result?.missionId) {
             createdMissionId = action.result.missionId;
             if (createdMissionId) {
               setActiveMissionId(createdMissionId);
             }
           }
-          UltronEventBus.publish("TOOL_COMPLETED", "TOOL", `Completed ${toolName}`);
         }
       }
 
-      // Add Ultron response message to chat stream
       const botMsgId = `chat-b-${Date.now()}`;
       setChatMessages((prev) => [
         ...prev,
@@ -272,16 +365,12 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         },
       ]);
 
-      // Speak response through voice engine
       try {
         UltronVoiceEngine.getInstance().speak(replyText);
       } catch {}
 
-      // Refresh MissionManager state
       setBackendMissions(MissionManager.getMissions());
-    } catch (err: any) {
-      console.warn("API notice; executing local fallback:", err?.message);
-      // Fallback: create local mission
+    } catch {
       const localMission = MissionManager.createMission(commandText);
       setActiveMissionId(localMission.id);
       setBackendMissions(MissionManager.getMissions());
@@ -321,6 +410,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
           "Regional intelligence telemetry active",
         ],
         cameraStatus: "NO_AUTHORIZED_SOURCES",
+        cameraSources: [],
       });
     }
   };
@@ -338,13 +428,6 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
   const handleDenyGate = (_gateId: string) => {
     setShowApprovalModal(false);
     setSelectedGate(null);
-  };
-
-  const handleNewMission = () => {
-    const name = prompt("Enter objective for new ULTRON Mission:");
-    if (name) {
-      handleCommandSubmit(name);
-    }
   };
 
   const activeBackendMission =
@@ -368,6 +451,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         systemStatus={systemStatus.api === "online" ? "online" : "degraded"}
         operatorName="GAURAV"
         operatorRole="PRIME USER"
+        onOpenSystemHealth={() => setActiveNav("system")}
       />
 
       {/* 2. MAIN WORKSPACE */}
@@ -386,7 +470,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
           onSelect={(item) => setActiveNav(item)}
         />
 
-        {/* View Switch: HOME (Primary Command Center matching reference image) */}
+        {/* View Switch: HOME (Primary Command Center) */}
         {activeNav === "home" ? (
           <>
             {/* LEFT COLUMN: Missions & Chat */}
@@ -394,7 +478,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
               missions={uiMissions}
               activeMissionId={activeMissionId}
               onSelectMission={(id) => setActiveMissionId(id)}
-              onNewMission={handleNewMission}
+              onNewMission={(obj) => handleCommandSubmit(obj)}
               chatMessages={chatMessages}
               onSendMessage={handleCommandSubmit}
               isProcessing={isProcessing}
@@ -462,17 +546,18 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
             >
               {/* Upper Right: ULTRON ORACLE */}
               <UltronOraclePanel
-                quote="The future is not predicted, it's built by those who see it first."
-                author="ULTRON"
                 activeModel={activeModel}
                 systemInfo={DEMO_SYSTEM_INFO}
+                onActionCreateMission={(obj) => handleCommandSubmit(obj)}
+                onActionInvestigate={() => {
+                  handleCommandSubmit("Investigate current verified intelligence signals");
+                }}
               />
 
               {/* Lower Right: GLOBAL NEWS */}
               <GlobalNewsPanel
                 stories={newsStories}
                 onSelectStory={handleSelectNewsStory}
-                onViewAll={() => alert("All Global News Feeds Synced.")}
               />
             </div>
           </>
