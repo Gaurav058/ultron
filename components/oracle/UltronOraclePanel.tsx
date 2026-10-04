@@ -12,11 +12,14 @@ import React, { useEffect, useState } from "react";
 import { SystemInfoMetadata } from "@/types/system";
 import { OracleInsight, SourceProvenance } from "@/types/intelligence";
 
+import { SelectedLocation } from "@/types/location";
+
 export interface UltronOraclePanelProps {
   quote?: string;
   author?: string;
   systemInfo?: SystemInfoMetadata;
   activeModel?: string;
+  selectedLocation?: SelectedLocation;
   onActionCreateMission?: (objective: string) => void;
   onActionInvestigate?: (signalId: string) => void;
 }
@@ -30,6 +33,7 @@ export default function UltronOraclePanel({
     environment: "Production",
   },
   activeModel,
+  selectedLocation,
   onActionCreateMission,
   onActionInvestigate,
 }: UltronOraclePanelProps) {
@@ -55,15 +59,23 @@ export default function UltronOraclePanel({
 
   const handleCreateMission = () => {
     const objective =
-      oracleData?.actionableMissions?.[0] ||
-      `Investigate Intelligence: ${oracleData?.insight?.slice(0, 50) || "Emerging AI signals"}`;
+      selectedLocation
+        ? `Investigate verified intelligence for ${selectedLocation.city || selectedLocation.name || "selected coordinates"}`
+        : oracleData?.actionableMissions?.[0] ||
+          `Investigate Intelligence: ${oracleData?.insight?.slice(0, 50) || "Emerging AI signals"}`;
     onActionCreateMission?.(objective);
   };
 
   const handleInvestigate = () => {
-    const signalId = oracleData?.relatedSignals?.[0] || "sig-recent";
-    onActionInvestigate?.(signalId);
+    if (selectedLocation) {
+      const locName = selectedLocation.city || selectedLocation.name || `Sector [${selectedLocation.latitude.toFixed(2)}°, ${selectedLocation.longitude.toFixed(2)}°]`;
+      onActionInvestigate?.(`Investigate current intelligence around ${locName}`);
+    } else {
+      const signalId = oracleData?.relatedSignals?.[0] || "sig-recent";
+      onActionInvestigate?.(signalId);
+    }
   };
+
 
   return (
     <div
@@ -150,7 +162,9 @@ export default function UltronOraclePanel({
         <div style={{ display: "flex", flexDirection: "column", gap: "4px", flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: "9px", fontWeight: 700, color: "#00D9FF", textTransform: "uppercase" }}>
-              {oracleData?.domain || "AI & GLOBAL COGNITION"}
+              {selectedLocation
+                ? `LOCATION: ${selectedLocation.city ? `${selectedLocation.city}${selectedLocation.country ? `, ${selectedLocation.country}` : ""}` : selectedLocation.name || "GEO-SECTOR"}`
+                : oracleData?.domain || "AI & GLOBAL COGNITION"}
             </span>
             <span
               style={{
@@ -163,7 +177,7 @@ export default function UltronOraclePanel({
                 fontWeight: 600,
               }}
             >
-              {Math.round((oracleData?.confidence || 0.94) * 100)}% Confidence
+              {selectedLocation ? "Verified Telemetry" : `${Math.round((oracleData?.confidence || 0.94) * 100)}% Confidence`}
             </span>
           </div>
 
@@ -179,18 +193,36 @@ export default function UltronOraclePanel({
               overflow: "hidden",
             }}
           >
-            {isLoading
-              ? "Synthesizing latest verified global intelligence..."
-              : oracleData?.insight ||
-                "Frontier autonomous systems are shifting from prompt completion to persistent multi-tier reasoning loops with continuous ground-truth verification."}
+            {selectedLocation ? (
+              selectedLocation.insights && selectedLocation.insights.length > 0 ? (
+                <span>
+                  {selectedLocation.insights.join(". ")}
+                  {selectedLocation.weather ? ` Atmospheric condition: ${selectedLocation.weather.condition}, ${selectedLocation.weather.temperature}.` : ""}
+                </span>
+              ) : (
+                "Location selected. Loading available intelligence..."
+              )
+            ) : isLoading ? (
+              "Synthesizing latest verified global intelligence..."
+            ) : (
+              oracleData?.insight ||
+              "Frontier autonomous systems are shifting from prompt completion to persistent multi-tier reasoning loops with continuous ground-truth verification."
+            )}
           </p>
 
           {/* Sources Summary Tag */}
           <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
             <span style={{ fontSize: "9px", color: "#7187A5" }}>
-              {oracleData?.sources?.length || 1} verified source{oracleData?.sources?.length === 1 ? "" : "s"}
+              {selectedLocation
+                ? `Geospatial Sector [${selectedLocation.latitude.toFixed(2)}°, ${selectedLocation.longitude.toFixed(2)}°]`
+                : `${oracleData?.sources?.length || 1} verified source${oracleData?.sources?.length === 1 ? "" : "s"}`}
             </span>
-            {oracleData?.sources?.[0]?.source && (
+            {selectedLocation?.weather?.windSpeed && (
+              <span style={{ fontSize: "9px", color: "#C8D8EA", fontWeight: 600 }}>
+                • Wind: {selectedLocation.weather.windSpeed}
+              </span>
+            )}
+            {!selectedLocation && oracleData?.sources?.[0]?.source && (
               <span style={{ fontSize: "9px", color: "#C8D8EA", fontWeight: 600 }}>
                 • {oracleData.sources[0].source}
               </span>

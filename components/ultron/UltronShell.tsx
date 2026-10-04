@@ -516,10 +516,14 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
                   overflow: "hidden",
                 }}
               >
-                {/* 3D Earth Globe with Layer Filters */}
+                {/* 3D Real Google Earth with Layer Filters & Controls */}
                 <GlobalIntelligenceGlobe
                   selectedLocation={selectedLocation}
                   onSelectLocation={(loc) => setSelectedLocation(loc)}
+                  onInvestigateLocation={(loc) => {
+                    const locName = loc.city || loc.name || `Sector [${loc.latitude.toFixed(2)}°, ${loc.longitude.toFixed(2)}°]`;
+                    handleCommandSubmit(`Investigate current intelligence around ${locName}`);
+                  }}
                 />
 
                 {/* Live Activity Feed */}
@@ -548,9 +552,15 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
               <UltronOraclePanel
                 activeModel={activeModel}
                 systemInfo={DEMO_SYSTEM_INFO}
+                selectedLocation={selectedLocation}
                 onActionCreateMission={(obj) => handleCommandSubmit(obj)}
-                onActionInvestigate={() => {
-                  handleCommandSubmit("Investigate current verified intelligence signals");
+                onActionInvestigate={(target) => {
+                  if (typeof target === "string" && target.startsWith("Investigate")) {
+                    handleCommandSubmit(target);
+                  } else {
+                    const locName = selectedLocation?.city || selectedLocation?.name || "selected sector";
+                    handleCommandSubmit(`Investigate current intelligence around ${locName}`);
+                  }
                 }}
               />
 
