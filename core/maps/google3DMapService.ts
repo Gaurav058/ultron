@@ -41,16 +41,14 @@ export class Google3DMapService {
 
   public static getApiKey(): string | null {
     if (typeof window !== "undefined") {
-      return (
-        (window as any).__ULTRON_GOOGLE_MAPS_KEY ||
-        process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
-        null
-      );
+      const local = localStorage.getItem("ultron.google_maps_key");
+      if (local && local.trim().length > 0) return local.trim();
+      if ((window as any).__ULTRON_GOOGLE_MAPS_KEY) return (window as any).__ULTRON_GOOGLE_MAPS_KEY;
     }
     return (
       process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||
       process.env.GOOGLE_MAPS_API_KEY ||
-      null
+      "AIzaSyAdUecV2wZz9JuUMwxYaW9nHP80pn4lu7A"
     );
   }
 

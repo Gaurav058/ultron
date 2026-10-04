@@ -65,6 +65,14 @@ export default function UltronEarth({
   const [activeLayer, setActiveLayer] = useState<EarthLayer>("ALL");
   const [showLayersDropdown, setShowLayersDropdown] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [manualKeyInput, setManualKeyInput] = useState("AIzaSyAdUecV2wZz9JuUMwxYaW9nHP80pn4lu7A");
+
+  const handleSaveManualKey = () => {
+    if (manualKeyInput.trim()) {
+      localStorage.setItem("ultron.google_maps_key", manualKeyInput.trim());
+      window.location.reload();
+    }
+  };
 
   // Search
   const [searchOpen, setSearchOpen] = useState(false);
@@ -488,33 +496,47 @@ export default function UltronEarth({
           }}
         >
           {earthStatus === "API KEY MISSING" ? (
-            <div style={{ maxWidth: "420px", display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div style={{ color: "#FFB020", fontSize: "14px", fontWeight: 700, letterSpacing: "0.06em" }}>
-                GOOGLE MAPS API KEY NOT DETECTED
+            <div style={{ maxWidth: "440px", display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div style={{ color: "#00D9FF", fontSize: "14px", fontWeight: 700, letterSpacing: "0.06em" }}>
+                CONNECT GOOGLE MAPS PLATFORM KEY
               </div>
               <div style={{ color: "#8EABC6", fontSize: "11px", lineHeight: "1.5" }}>
-                Add your key to <code style={{ color: "#00D9FF" }}>.env.local</code> as:
-                <br />
-                <code style={{ color: "#00E6A8", background: "rgba(0,0,0,0.4)", padding: "2px 6px", borderRadius: "3px" }}>
-                  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSy...
-                </code>
+                Connect your Google Maps Platform key to activate Photorealistic 3D Earth:
               </div>
-              <button
-                onClick={() => window.location.reload()}
-                style={{
-                  background: "#00D9FF",
-                  color: "#020817",
-                  border: "none",
-                  borderRadius: "4px",
-                  padding: "6px 14px",
-                  fontWeight: 700,
-                  fontSize: "11px",
-                  cursor: "pointer",
-                  marginTop: "8px",
-                }}
-              >
-                RELOAD ULTRON EARTH
-              </button>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  type="text"
+                  value={manualKeyInput}
+                  onChange={(e) => setManualKeyInput(e.target.value)}
+                  placeholder="Paste Google Maps API key (AIzaSy...)"
+                  style={{
+                    flex: 1,
+                    background: "rgba(11, 42, 80, 0.6)",
+                    border: "1px solid rgba(0, 217, 255, 0.4)",
+                    borderRadius: "4px",
+                    padding: "6px 10px",
+                    color: "#EAF4FF",
+                    fontSize: "11px",
+                    outline: "none",
+                  }}
+                />
+                <button
+                  onClick={handleSaveManualKey}
+                  style={{
+                    background: "linear-gradient(90deg, #1687FF 0%, #00D9FF 100%)",
+                    color: "#020817",
+                    border: "none",
+                    borderRadius: "4px",
+                    padding: "6px 14px",
+                    fontWeight: 800,
+                    fontSize: "10px",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  CONNECT KEY
+                </button>
+              </div>
             </div>
           ) : earthStatus === "MAP ERROR" ? (
             <div style={{ maxWidth: "420px", display: "flex", flexDirection: "column", gap: "10px" }}>
