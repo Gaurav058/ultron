@@ -21,7 +21,9 @@ import MissionsModule from "./modules/MissionsModule";
 import BrainModule from "./modules/BrainModule";
 import AgentsModule from "./modules/AgentsModule";
 import ToolsModule from "./modules/ToolsModule";
+import FreeToolsHubModule from "./modules/FreeToolsHubModule";
 import WorldModule from "./modules/WorldModule";
+import WorldMonitorModule from "./modules/WorldMonitorModule";
 import SystemModule from "./modules/SystemModule";
 import ApprovalModal from "../deck/ApprovalModal";
 
@@ -53,9 +55,29 @@ export interface UltronShellProps {
 
 export default function UltronShell({ initialModule = "CORE" }: UltronShellProps) {
   // Navigation State
-  const [activeNav, setActiveNav] = useState<NavItemKey>(
-    initialModule.toLowerCase() as NavItemKey || "home"
-  );
+  const initialNavKey =
+    (initialModule.toLowerCase().replace("_", "-") as NavItemKey) || "home";
+  const [activeNav, setActiveNav] = useState<NavItemKey>(initialNavKey);
+
+  const handleNavSelect = (item: NavItemKey) => {
+    setActiveNav(item);
+    if (typeof window !== "undefined") {
+      const routeMap: Record<NavItemKey, string> = {
+        home: "/",
+        missions: "/missions",
+        brain: "/brain",
+        agents: "/agents",
+        tools: "/tools",
+        world: "/world",
+        "world-monitor": "/world-monitor",
+        system: "/system",
+      };
+      const path = routeMap[item] || "/";
+      if (window.location.pathname !== path) {
+        window.history.pushState(null, "", path);
+      }
+    }
+  };
 
   // Backend Missions State
   const [backendMissions, setBackendMissions] = useState<Mission[]>([]);
@@ -467,7 +489,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         {/* Leftmost Vertical Icon Navigation Rail */}
         <IconNavRail
           activeItem={activeNav}
-          onSelect={(item) => setActiveNav(item)}
+          onSelect={handleNavSelect}
         />
 
         {/* View Switch: HOME (Primary Command Center) */}
@@ -598,8 +620,17 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
                 }
               />
             )}
-            {activeNav === "tools" && <ToolsModule />}
+            {activeNav === "tools" && (
+              <FreeToolsHubModule
+                onDispatchMission={(prompt) => handleCommandSubmit(prompt)}
+              />
+            )}
             {activeNav === "world" && <WorldModule />}
+            {activeNav === "world-monitor" && (
+              <WorldMonitorModule
+                onDispatchMission={(prompt) => handleCommandSubmit(prompt)}
+              />
+            )}
             {activeNav === "system" && <SystemModule />}
           </div>
         )}

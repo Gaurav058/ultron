@@ -1,7 +1,7 @@
 export interface ParsedIntent {
   rawInput: string;
   isMission: boolean;
-  intentCategory: "RESEARCH" | "CODING" | "SECURITY" | "WORLD" | "SYSTEM" | "CONVERSATION";
+  intentCategory: "RESEARCH" | "CODING" | "SECURITY" | "WORLD" | "SYSTEM" | "TOOL" | "WORLD_MONITOR" | "CONVERSATION";
   title: string;
   objective: string;
   suggestedPriority: "P0" | "P1" | "P2" | "P3";
@@ -15,6 +15,8 @@ export function parseIntent(input: string): ParsedIntent {
   const lower = trimmed.toLowerCase();
 
   // Keyword heuristic matrix with word boundaries
+  const isTool = /\b(compress|squoosh|code image|carbon|ray\.so|alternative|pwned|breach|gutenberg|photopea|remove\.bg|cleanup\.pictures|mockup)\b/i.test(lower);
+  const isWorldMonitor = /\b(world monitor|geopolitical|conflict|maritime|ais|adsb|chokepoint|strait|radar)\b/i.test(lower);
   const isCodeBuild = /\b(build|code|develop|refactor|implement|create microservice|component|script)\b/i.test(lower);
   const isSecurity = /\b(vulnerability|cve|threat|attack|exploit|security audit|firewall|pentest|penetration)\b/i.test(lower);
   const isResearch = /\b(research|analyze|investigate|study|compare|market report|competitors|findings)\b/i.test(lower);
@@ -28,7 +30,19 @@ export function parseIntent(input: string): ParsedIntent {
   let requiresApproval = false;
   const capabilities: string[] = [];
 
-  if (isCodeBuild) {
+  if (isTool) {
+    category = "TOOL";
+    isMission = true;
+    complexity = "MODERATE";
+    priority = "P1";
+    capabilities.push("tool_execution", "artifact_generation", "schema_validation");
+  } else if (isWorldMonitor) {
+    category = "WORLD_MONITOR";
+    isMission = true;
+    complexity = "MODERATE";
+    priority = "P1";
+    capabilities.push("osint_discovery", "geopolitical_analysis", "provenance_tracking");
+  } else if (isCodeBuild) {
     category = "CODING";
     isMission = true;
     complexity = "COMPLEX";

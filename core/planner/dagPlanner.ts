@@ -4,6 +4,112 @@ import { ParsedIntent } from "../cognition/intentParser";
 export function generateMissionDAG(intent: ParsedIntent, missionId: string): MissionTask[] {
   const timestamp = new Date().toISOString();
 
+  if (intent.intentCategory === "TOOL") {
+    const task1: MissionTask = {
+      id: `${missionId}-t1`,
+      missionId,
+      title: "Tool Capability Resolution & Schema Validation",
+      description: `Select eligible tool and validate input parameters against schema for: "${intent.objective}".`,
+      assignedAgent: "ARCHITECT",
+      requiredSkills: ["tool_registry", "schema_validation"],
+      status: "QUEUED",
+      dependencies: [],
+      progress: 0,
+      startedAt: timestamp,
+    };
+
+    const task2: MissionTask = {
+      id: `${missionId}-t2`,
+      missionId,
+      title: "Permission & Sandbox Pre-Execution Check",
+      description: "Verify risk level (L0-L3), check user consent gates, and isolate local execution bounds.",
+      assignedAgent: "SECURITY",
+      requiredSkills: ["permission_engine", "ssrf_guard"],
+      status: "QUEUED",
+      dependencies: [task1.id],
+      progress: 0,
+    };
+
+    const task3: MissionTask = {
+      id: `${missionId}-t3`,
+      missionId,
+      title: "Execute Sovereign Tool & Generate Output Artifact",
+      description: "Perform local processing or external workflow launch; record byte measurements and outputs.",
+      assignedAgent: "BUILDER",
+      requiredSkills: ["tool_execution", "artifact_generation"],
+      status: "QUEUED",
+      dependencies: [task2.id],
+      progress: 0,
+    };
+
+    const task4: MissionTask = {
+      id: `${missionId}-t4`,
+      missionId,
+      title: "Verify Result & Record Provenance Ledger",
+      description: "Verify actual artifact integrity, calculate compression savings or result status, and record provenance.",
+      assignedAgent: "REALITY_CHECKER",
+      requiredSkills: ["artifact_verification", "provenance_logging"],
+      status: "QUEUED",
+      dependencies: [task3.id],
+      progress: 0,
+    };
+
+    return [task1, task2, task3, task4];
+  }
+
+  if (intent.intentCategory === "WORLD_MONITOR") {
+    const task1: MissionTask = {
+      id: `${missionId}-t1`,
+      missionId,
+      title: "Query World Monitor MCP & Discover Verified Feeds",
+      description: `Query anonymous get_sources discovery endpoint for domain: "${intent.objective}".`,
+      assignedAgent: "RESEARCHER",
+      requiredSkills: ["mcp_discovery", "geopolitical_retrieval"],
+      status: "QUEUED",
+      dependencies: [],
+      progress: 0,
+      startedAt: timestamp,
+    };
+
+    const task2: MissionTask = {
+      id: `${missionId}-t2`,
+      missionId,
+      title: "Correlate Multidomain Intelligence & Check Freshness",
+      description: "Cross-reference conflict feeds, maritime choke points, and infrastructure data; audit freshness.",
+      assignedAgent: "RESEARCHER",
+      requiredSkills: ["evidence_corroboration", "freshness_check"],
+      status: "QUEUED",
+      dependencies: [task1.id],
+      progress: 0,
+    };
+
+    const task3: MissionTask = {
+      id: `${missionId}-t3`,
+      missionId,
+      title: "Synthesize Evidence-Linked Geopolitical Assessment",
+      description: "Separate source-reported facts from inference; link original source URLs and geographical scopes.",
+      assignedAgent: "ARCHITECT",
+      requiredSkills: ["osint_synthesis", "provenance_tracking"],
+      status: "QUEUED",
+      dependencies: [task2.id],
+      progress: 0,
+    };
+
+    const task4: MissionTask = {
+      id: `${missionId}-t4`,
+      missionId,
+      title: "Reality Check & Provenance Verification",
+      description: "Audit source freshness status, ensure zero fabricated claims, and commit to memory.",
+      assignedAgent: "REALITY_CHECKER",
+      requiredSkills: ["reality_verification", "memory_promotion"],
+      status: "QUEUED",
+      dependencies: [task3.id],
+      progress: 0,
+    };
+
+    return [task1, task2, task3, task4];
+  }
+
   if (intent.intentCategory === "CODING") {
     const task1: MissionTask = {
       id: `${missionId}-t1`,

@@ -60,3 +60,66 @@ export interface ToolExecutionResult {
   error?: string;
   redactedFields: string[];
 }
+
+export type ToolExecutionMode = "local" | "approved_api" | "user_opened_website";
+
+export type ToolPricingStatus = "free_core" | "freemium" | "paid" | "unverified";
+
+export type ToolAutomationPermission =
+  | "approved"
+  | "user_interaction_required"
+  | "unverified";
+
+export type ToolHubCategory =
+  | "Image & Design"
+  | "Developer Tools"
+  | "Research & Learning"
+  | "Computational Tools"
+  | "Security"
+  | "Media Discovery"
+  | "Global Intelligence";
+
+export type ToolAvailabilityStatus =
+  | "AVAILABLE"
+  | "RESTRICTED"
+  | "REQUIRES_CREDENTIAL"
+  | "EXCLUDED";
+
+export type ToolHealthStatus = "OPERATIONAL" | "DEGRADED" | "UNAVAILABLE" | "UNKNOWN";
+
+export type SecurityRiskLevel = "L0" | "L1" | "L2" | "L3";
+
+export type ToolActionType =
+  | "LAUNCH_EXTERNAL"
+  | "LOCAL_IMAGE_COMPRESS"
+  | "HIBP_BREACH_CHECK"
+  | "GUTENBERG_SEARCH"
+  | "WAYBACK_SEARCH"
+  | "WORLD_MONITOR_DISCOVERY"
+  | "ALTERNATIVE_SEARCH";
+
+export interface FreeToolDefinition {
+  id: string;
+  name: string;
+  description: string;
+  category: ToolHubCategory;
+  websiteUrl: string;
+  documentationUrl: string;
+  executionMode: ToolExecutionMode;
+  pricingStatus: ToolPricingStatus;
+  subscriptionRequiredForIntendedUse: boolean;
+  automationPermission: ToolAutomationPermission;
+  inputSchema: Record<string, any>;
+  outputSchema: Record<string, any>;
+  requiredPermissions: string[];
+  supportedPlatforms: string[];
+  availabilityStatus: ToolAvailabilityStatus;
+  limitations: string[];
+  lastVerifiedAt: string;
+  termsUrl: string;
+  healthStatus: ToolHealthStatus;
+  riskLevel: SecurityRiskLevel;
+  actionType: ToolActionType;
+  excludedReason?: string;
+}
+
