@@ -1,67 +1,189 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import UltronPanel from "../../common/UltronPanel";
-import UltronStatus from "../../common/UltronStatus";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
+import PageHeader from "../../common/PageHeader";
+import SectionHeader from "../../common/SectionHeader";
+import FilterBar from "../../common/FilterBar";
+import SearchInput from "../../common/SearchInput";
+import FreshnessIndicator, { FreshnessLevel } from "../../common/FreshnessIndicator";
+import SourceAttribution from "../../common/SourceAttribution";
+import Drawer from "../../common/Drawer";
+import LoadingState from "../../common/LoadingState";
+import EmptyState from "../../common/EmptyState";
+import ErrorState from "../../common/ErrorState";
+import StaleDataBanner from "../../common/StaleDataBanner";
 import UltronButton from "../../common/UltronButton";
-import {
-  WorldMonitorProviderStatus,
-  IntelligenceSourceItem,
-  IntelligenceProvenance,
-} from "@/core/worldmonitor/worldMonitorService";
+import { IntelligenceEvent, IntelligenceLayerConfig } from "@/core/intelligence/pipeline/types";
+import { SelectedLocation } from "@/types/location";
+
+const GlobalIntelligenceGlobe = dynamic(
+  () => import("../../globe/GlobalIntelligenceGlobe"),
+  { ssr: false }
+);
 
 export interface WorldMonitorModuleProps {
   onDispatchMission?: (prompt: string) => void;
 }
 
 export default function WorldMonitorModule({ onDispatchMission }: WorldMonitorModuleProps) {
-  const [providerStatus, setProviderStatus] = useState<WorldMonitorProviderStatus | null>(null);
-  const [sources, setSources] = useState<IntelligenceSourceItem[]>([]);
-  const [provenance, setProvenance] = useState<IntelligenceProvenance | null>(null);
+  // Data State
+  const [events, setEvents] = useState<IntelligenceEvent[]>([]);
+  const [layers, setLayers] = useState<IntelligenceLayerConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [searchFilter, setSearchFilter] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"workspace" | "sources" | "selfhost">("workspace");
+  const [error, setError] = useState<string | null>(null);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(new Date().toLocaleTimeString());
+  const [isStale, setIsStale] = useState(false);
+
+  // Filters & Search
+  const [activeLayerFilter, setActiveLayerFilter] = useState<string>("ALL");
+  const [timeFilter, setTimeFilter] = useState<"latest" | "24h" | "7d" | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Inspection Drawer & Selected Event
+  const [selectedEvent, setSelectedEvent] = useState<IntelligenceEvent | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Map Synchronization State
+  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation>({
+    latitude: 25.2048,
+    longitude: 55.2708,
+    city: "Dubai",
+    country: "UAE",
+    selectedAt: new Date().toISOString(),
+    weather: { temperature: "32°C", condition: "Clear" },
+    cameraStatus: "NO_AUTHORIZED_SOURCES",
+    cameraSources: [],
+  });
+
+  const [mobileViewTab, setMobileViewTab] = useState<"map" | "feed">("map");
+
+  // Load Layers and Events from Pipeline
+  const loadData = useCallback(async (isManualRefresh = false) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [eventsRes, layersRes] = await Promise.all([
+        fetch(`/api/intelligence/events?time=${timeFilter}${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ""}`),
+        fetch("/api/intelligence/layers"),
+      ]);
+
+      if (!eventsRes.ok) throw new Error(`Events API responded with status ${eventsRes.status}`);
+
+      const eventsData = await eventsRes.json();
+      setEvents(eventsData.events || []);
+
+      if (layersRes.ok) {
+        const layersData = await layersRes.json();
+        setLayers(layersData.layers || []);
+      }
+
+      setLastRefreshedAt(new Date().toLocaleTimeString());
+      setIsStale(false);
+    } catch (err: any) {
+      console.warn("World Monitor data load error:", err);
+      setError(err?.message || "Failed to acquire intelligence telemetry");
+      setIsStale(true);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [timeFilter, searchQuery]);
 
   useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      try {
-        const [statusRes, sourcesRes] = await Promise.all([
-          fetch("/api/world-monitor/status"),
-          fetch("/api/world-monitor/sources"),
-        ]);
-
-        if (statusRes.ok) {
-          const s = await statusRes.json();
-          setProviderStatus(s);
-        }
-
-        if (sourcesRes.ok) {
-          const d = await sourcesRes.json();
-          setSources(d.sources || []);
-          setProvenance(d.provenance || null);
-        }
-      } catch (err) {
-        console.error("Error loading World Monitor data:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
     loadData();
-  }, []);
+    const timer = setInterval(() => loadData(), 60000); // 60s background refresh
+    return () => clearInterval(timer);
+  }, [loadData]);
 
-  const categories = ["All", "Conflict", "Geopolitics", "Maritime", "Aviation", "Climate", "Energy", "Cyber"];
+  // Layer filter options
+  const filterOptions = useMemo(() => {
+    const opts = [
+      { key: "ALL", label: "All Layers", count: events.length },
+      {
+        key: "DISASTER",
+        label: "Seismic (USGS)",
+        count: events.filter((e) => e.category === "DISASTER").length,
+        color: "var(--ultron-warning)",
+      },
+      {
+        key: "WEATHER",
+        label: "Environmental (NASA)",
+        count: events.filter((e) => e.category === "WEATHER").length,
+        color: "var(--ultron-warning)",
+      },
+      {
+        key: "MARITIME",
+        label: "Maritime Radar",
+        count: events.filter((e) => e.category === "MARITIME").length,
+        color: "var(--ultron-blue)",
+      },
+      {
+        key: "CYBER",
+        label: "Cyber Defense (CISA)",
+        count: events.filter((e) => e.category === "CYBER").length,
+        color: "var(--ultron-purple)",
+      },
+      {
+        key: "GEOPOLITICS",
+        label: "Geopolitics",
+        count: events.filter((e) => e.category === "GEOPOLITICS").length,
+        color: "var(--ultron-primary)",
+      },
+      {
+        key: "MISSIONS",
+        label: "ULTRON Missions",
+        count: events.filter((e) => e.category === "MISSIONS").length,
+        color: "var(--ultron-success)",
+      },
+    ];
+    return opts;
+  }, [events]);
 
-  const filteredSources = sources.filter((item) => {
-    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
-    const matchesSearch =
-      searchFilter === "" ||
-      item.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      item.geographicalScope.toLowerCase().includes(searchFilter.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Filtered Events
+  const filteredEvents = useMemo(() => {
+    let result = events;
+    if (activeLayerFilter !== "ALL") {
+      result = result.filter((e) => e.category === activeLayerFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (e) =>
+          e.title.toLowerCase().includes(q) ||
+          e.summary.toLowerCase().includes(q) ||
+          e.sourceName.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [events, activeLayerFilter, searchQuery]);
+
+  // Handle Event Selection -> FlyTo Coordinates & Open Drawer
+  const handleSelectEvent = (event: IntelligenceEvent) => {
+    setSelectedEvent(event);
+    setIsDrawerOpen(true);
+
+    setSelectedLocation({
+      latitude: event.latitude,
+      longitude: event.longitude,
+      city: event.geographicalScope?.split("/")[0]?.trim() || event.title,
+      country: "Earth Sector",
+      selectedAt: event.eventTime,
+      insights: [
+        `Category: ${event.category}`,
+        `Severity: ${event.severity || "MEDIUM"}`,
+        `Attributed Source: ${event.sourceName}`,
+      ],
+      cameraStatus: "NO_AUTHORIZED_SOURCES",
+      cameraSources: [],
+    });
+  };
+
+  // Handle "Investigate with ULTRON"
+  const handleInvestigateEvent = (event: IntelligenceEvent) => {
+    const prompt = `Investigate intelligence signal: "${event.title}" at coordinates [${event.latitude.toFixed(2)}°, ${event.longitude.toFixed(2)}°] reported by ${event.sourceName}. Corroborate source claims, separate facts from inference, and record provenance.`;
+    onDispatchMission?.(prompt);
+    setIsDrawerOpen(false);
+  };
 
   return (
     <div
@@ -71,504 +193,450 @@ export default function WorldMonitorModule({ onDispatchMission }: WorldMonitorMo
         gap: "10px",
         height: "100%",
         padding: "10px 1.4vw",
-        overflowY: "auto",
+        overflow: "hidden",
         fontFamily: "var(--ultron-font)",
       }}
     >
-      {/* 1. TOP HEADER & TELEMETRY */}
-      <UltronPanel
-        title="WORLD MONITOR WORKSPACE"
-        subtitle="Global Open-Source Intelligence (OSINT) & Geospatial Radar"
+      {/* 1. WORKSPACE HEADER */}
+      <PageHeader
+        title="GLOBAL INTELLIGENCE"
+        subtitle="A source-attributed operational view of global events, geospatial telemetry, and emerging signals across planetary boundaries."
+        breadcrumbs={["ULTRON OS", "WORLD MONITOR", "NATIVE WORKSPACE"]}
         badge={
-          <div style={{ display: "flex", gap: "6px" }}>
-            <UltronStatus
-              status={providerStatus?.hasApiKey ? "ONLINE" : "STANDBY"}
-              label={providerStatus?.hasApiKey ? "AUTHENTICATED" : "CREDENTIALS REQUIRED"}
-              size="sm"
-            />
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <FreshnessIndicator level={isStale ? "STALE" : "LIVE"} lastUpdated={lastRefreshedAt} />
             <span
               style={{
                 fontSize: "10px",
                 padding: "2px 6px",
-                borderRadius: "4px",
-                border: "1px solid rgba(0, 217, 255, 0.3)",
-                color: "#00D9FF",
-                background: "rgba(0, 217, 255, 0.08)",
+                borderRadius: "var(--radius-xs)",
+                background: "rgba(0, 230, 168, 0.12)",
+                color: "var(--ultron-success)",
+                border: "1px solid rgba(0, 230, 168, 0.3)",
                 fontWeight: 600,
               }}
             >
-              MCP ANONYMOUS
-            </span>
-            <span
-              style={{
-                fontSize: "10px",
-                padding: "2px 6px",
-                borderRadius: "4px",
-                border: "1px solid rgba(124, 77, 255, 0.3)",
-                color: "#7C4DFF",
-                background: "rgba(124, 77, 255, 0.08)",
-                fontWeight: 600,
-              }}
-            >
-              AGPL-3.0 ISOLATED
+              ALL FEEDS OPERATIONAL
             </span>
           </div>
         }
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-          <div style={{ fontSize: "11px", color: "var(--ultron-text-secondary)", maxWidth: "800px" }}>
-            Isolated intelligence workspace connecting official World Monitor public discovery endpoints without embedding
-            restrictions. Live conflict data, geopolitical risks, and maritime/aviation transponder feeds are monitored across sovereign boundaries.
-          </div>
-
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              onClick={() => setActiveTab("workspace")}
-              style={{
-                background: activeTab === "workspace" ? "rgba(0, 217, 255, 0.15)" : "transparent",
-                border: activeTab === "workspace" ? "1px solid #00D9FF" : "1px solid rgba(113, 135, 165, 0.3)",
-                color: activeTab === "workspace" ? "#EAF4FF" : "#7187A5",
-                padding: "4px 12px",
-                borderRadius: "6px",
-                fontSize: "11px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
+        actions={
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <UltronButton
+              variant="secondary"
+              size="sm"
+              onClick={() => loadData(true)}
+              disabled={isLoading}
             >
-              Tactical Launch
-            </button>
-            <button
-              onClick={() => setActiveTab("sources")}
-              style={{
-                background: activeTab === "sources" ? "rgba(0, 217, 255, 0.15)" : "transparent",
-                border: activeTab === "sources" ? "1px solid #00D9FF" : "1px solid rgba(113, 135, 165, 0.3)",
-                color: activeTab === "sources" ? "#EAF4FF" : "#7187A5",
-                padding: "4px 12px",
-                borderRadius: "6px",
-                fontSize: "11px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Discovered Sources ({sources.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("selfhost")}
-              style={{
-                background: activeTab === "selfhost" ? "rgba(0, 217, 255, 0.15)" : "transparent",
-                border: activeTab === "selfhost" ? "1px solid #00D9FF" : "1px solid rgba(113, 135, 165, 0.3)",
-                color: activeTab === "selfhost" ? "#EAF4FF" : "#7187A5",
-                padding: "4px 12px",
-                borderRadius: "6px",
-                fontSize: "11px",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              Self-Host / Architecture
-            </button>
-          </div>
-        </div>
-      </UltronPanel>
+              {isLoading ? "Acquiring..." : "Force Refresh"}
+            </UltronButton>
 
-      {/* 2. TAB CONTENT */}
-      {activeTab === "workspace" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "10px", flex: 1 }}>
-          {/* Left: Launch Panel & Framing Architecture */}
-          <UltronPanel title="TACTICAL LAUNCH DECK" subtitle="Official World Monitor Application Host">
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <div
+            {/* Mobile Tab Switcher */}
+            <div className="ultron-mobile-toggle" style={{ display: "none", gap: "4px" }}>
+              <button
+                onClick={() => setMobileViewTab("map")}
                 style={{
-                  background: "rgba(6, 19, 41, 0.7)",
-                  border: "1px solid rgba(22, 135, 255, 0.25)",
-                  borderRadius: "8px",
-                  padding: "16px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span style={{ fontSize: "18px" }}>🌐</span>
-                  <div>
-                    <div style={{ fontSize: "14px", fontWeight: 700, color: "#EAF4FF" }}>
-                      worldmonitor.app
-                    </div>
-                    <div style={{ fontSize: "11px", color: "#7187A5" }}>
-                      Upstream Host: Cloudflare Protected • Official Web Application
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    background: "rgba(255, 171, 0, 0.08)",
-                    border: "1px solid rgba(255, 171, 0, 0.3)",
-                    borderRadius: "6px",
-                    padding: "10px",
-                    fontSize: "11px",
-                    color: "#FFAB00",
-                    lineHeight: "1.4",
-                  }}
-                >
-                  <strong>Framing Policy Verification:</strong> The official host specifies{" "}
-                  <code>X-Frame-Options: SAMEORIGIN</code> and CSP{" "}
-                  <code>frame-ancestors 'self'</code>. In accordance with ULTRON Production Directives, iframe bypass tricks are strictly prohibited to preserve browser sandbox security.
-                </div>
-
-                <div style={{ fontSize: "12px", color: "#C8D8EA", lineHeight: "1.5" }}>
-                  World Monitor provides an independent multi-layer visualization suite featuring real-time military radar, satellite fire maps, naval AIS tracking, and geopolitical event streams.
-                </div>
-
-                <div style={{ display: "flex", gap: "10px", marginTop: "6px" }}>
-                  <a
-                    href="https://worldmonitor.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <UltronButton variant="primary" size="md">
-                      <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span>Open World Monitor in New Tab</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                          <polyline points="15 3 21 3 21 9" />
-                          <line x1="10" y1="14" x2="21" y2="3" />
-                        </svg>
-                      </span>
-                    </UltronButton>
-                  </a>
-
-                  <a
-                    href="https://github.com/koala73/worldmonitor"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none" }}
-                  >
-                    <UltronButton variant="secondary" size="md">
-                      View Upstream Repository
-                    </UltronButton>
-                  </a>
-                </div>
-              </div>
-
-              {/* Mission Dispatch Trigger */}
-              <div
-                style={{
-                  background: "rgba(6, 19, 41, 0.5)",
-                  border: "1px solid rgba(113, 135, 165, 0.2)",
-                  borderRadius: "8px",
-                  padding: "14px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
-                }}
-              >
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#00D9FF" }}>
-                  DEEP RECONNAISSANCE MISSION TEMPLATES
-                </div>
-                <div style={{ fontSize: "11px", color: "#7187A5" }}>
-                  Synthesize open OSINT data directly into ULTRON's autonomous mission DAG pipeline:
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  <button
-                    onClick={() =>
-                      onDispatchMission?.(
-                        "Investigate Black Sea maritime shipping corridors and naval activity"
-                      )
-                    }
-                    style={{
-                      background: "rgba(11, 42, 80, 0.6)",
-                      border: "1px solid rgba(0, 217, 255, 0.3)",
-                      color: "#EAF4FF",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "10px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Black Sea Corridors
-                  </button>
-                  <button
-                    onClick={() =>
-                      onDispatchMission?.(
-                        "Analyze Bab-el-Mandeb and Red Sea maritime transit disruption signals"
-                      )
-                    }
-                    style={{
-                      background: "rgba(11, 42, 80, 0.6)",
-                      border: "1px solid rgba(0, 217, 255, 0.3)",
-                      color: "#EAF4FF",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "10px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Red Sea Transit Risk
-                  </button>
-                  <button
-                    onClick={() =>
-                      onDispatchMission?.(
-                        "Cross-reference global seismic activity with energy infrastructure hubs"
-                      )
-                    }
-                    style={{
-                      background: "rgba(11, 42, 80, 0.6)",
-                      border: "1px solid rgba(0, 217, 255, 0.3)",
-                      color: "#EAF4FF",
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "10px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Seismic vs Energy Nodes
-                  </button>
-                </div>
-              </div>
-            </div>
-          </UltronPanel>
-
-          {/* Right: Real Connector Health & Telemetry */}
-          <UltronPanel title="NATIVE CONNECTOR TELEMETRY" subtitle="MCP Protocol Status & Provenance">
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "8px",
-                }}
-              >
-                <div style={{ background: "rgba(6, 19, 41, 0.6)", padding: "10px", borderRadius: "6px", border: "1px solid rgba(113, 135, 165, 0.15)" }}>
-                  <div style={{ fontSize: "10px", color: "#7187A5" }}>MCP DISCOVERY ENDPOINT</div>
-                  <div style={{ fontSize: "11px", color: "#00D9FF", fontWeight: 600, wordBreak: "break-all" }}>
-                    {providerStatus?.endpoint || "https://worldmonitor.app/mcp"}
-                  </div>
-                </div>
-
-                <div style={{ background: "rgba(6, 19, 41, 0.6)", padding: "10px", borderRadius: "6px", border: "1px solid rgba(113, 135, 165, 0.15)" }}>
-                  <div style={{ fontSize: "10px", color: "#7187A5" }}>AUTH STATUS</div>
-                  <div style={{ fontSize: "11px", color: providerStatus?.hasApiKey ? "#00E6A8" : "#FFAB00", fontWeight: 700 }}>
-                    {providerStatus?.authenticationStatus || "CREDENTIALS_REQUIRED"}
-                  </div>
-                </div>
-
-                <div style={{ background: "rgba(6, 19, 41, 0.6)", padding: "10px", borderRadius: "6px", border: "1px solid rgba(113, 135, 165, 0.15)" }}>
-                  <div style={{ fontSize: "10px", color: "#7187A5" }}>QUOTA STATUS</div>
-                  <div style={{ fontSize: "11px", color: "#EAF4FF", fontWeight: 600 }}>
-                    {providerStatus?.quotaStatus || "ANONYMOUS_QUOTA_FREE"}
-                  </div>
-                </div>
-
-                <div style={{ background: "rgba(6, 19, 41, 0.6)", padding: "10px", borderRadius: "6px", border: "1px solid rgba(113, 135, 165, 0.15)" }}>
-                  <div style={{ fontSize: "10px", color: "#7187A5" }}>ROUNDTRIP LATENCY</div>
-                  <div style={{ fontSize: "11px", color: "#00E6A8", fontWeight: 600 }}>
-                    {providerStatus?.latencyMs ? `${providerStatus.latencyMs} ms` : "Verified"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Permitted vs Restricted Operations */}
-              <div style={{ background: "rgba(6, 19, 41, 0.4)", padding: "10px", borderRadius: "6px", border: "1px solid rgba(113, 135, 165, 0.15)" }}>
-                <div style={{ fontSize: "11px", fontWeight: 700, color: "#EAF4FF", marginBottom: "6px" }}>
-                  OPERATIONAL CAPABILITIES BREAKDOWN
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px" }}>
-                    <span style={{ color: "#00E6A8" }}>✓</span>
-                    <span style={{ color: "#EAF4FF" }}>Public Discovery (get_sources):</span>
-                    <span style={{ color: "#7187A5" }}>Active & Quota-Free</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px" }}>
-                    <span style={{ color: "#00E6A8" }}>✓</span>
-                    <span style={{ color: "#EAF4FF" }}>Direct Workspace Launch:</span>
-                    <span style={{ color: "#7187A5" }}>Active (New Tab)</span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px" }}>
-                    <span style={{ color: "#FFAB00" }}>⚠</span>
-                    <span style={{ color: "#EAF4FF" }}>Restricted Feeds (Conflict/AIS/ADSB):</span>
-                    <span style={{ color: "#FFAB00" }}>Requires WORLDMONITOR_API_KEY</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Provenance Box */}
-              {provenance && (
-                <div style={{ background: "rgba(6, 19, 41, 0.4)", padding: "10px", borderRadius: "6px", border: "1px solid rgba(0, 217, 255, 0.2)" }}>
-                  <div style={{ fontSize: "10px", fontWeight: 700, color: "#00D9FF", marginBottom: "4px" }}>
-                    DATA PROVENANCE & FRESHNESS
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#7187A5", lineHeight: "1.4" }}>
-                    Provider: {provenance.provider} • Scope: {provenance.geographicalScope} • Freshness: {provenance.freshnessStatus} • Retrieved: {new Date(provenance.retrievedAt).toLocaleTimeString()}
-                  </div>
-                </div>
-              )}
-            </div>
-          </UltronPanel>
-        </div>
-      )}
-
-      {/* 3. SOURCES TAB */}
-      {activeTab === "sources" && (
-        <UltronPanel title="DISCOVERED OSINT SOURCES" subtitle={`${filteredSources.length} Monitored Feeds`}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {/* Filter Bar */}
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                {categories.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setSelectedCategory(c)}
-                    style={{
-                      background: selectedCategory === c ? "#1687FF" : "rgba(11, 42, 80, 0.5)",
-                      border: selectedCategory === c ? "1px solid #00D9FF" : "1px solid rgba(113, 135, 165, 0.2)",
-                      color: selectedCategory === c ? "#EAF4FF" : "#7187A5",
-                      padding: "3px 8px",
-                      borderRadius: "4px",
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-
-              <input
-                type="text"
-                placeholder="Search feeds, domains, regions..."
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                style={{
-                  background: "rgba(6, 19, 41, 0.8)",
-                  border: "1px solid rgba(113, 135, 165, 0.3)",
-                  borderRadius: "4px",
                   padding: "4px 8px",
-                  color: "#EAF4FF",
-                  fontSize: "11px",
-                  width: "220px",
-                }}
-              />
-            </div>
-
-            {/* Sources Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "8px" }}>
-              {filteredSources.map((s) => (
-                <div
-                  key={s.id}
-                  style={{
-                    background: "rgba(6, 19, 41, 0.7)",
-                    border: "1px solid rgba(113, 135, 165, 0.2)",
-                    borderRadius: "6px",
-                    padding: "10px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "6px",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ fontSize: "12px", fontWeight: 700, color: "#EAF4FF" }}>{s.name}</div>
-                    <span
-                      style={{
-                        fontSize: "9px",
-                        padding: "1px 5px",
-                        borderRadius: "3px",
-                        background: "rgba(0, 217, 255, 0.1)",
-                        color: "#00D9FF",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {s.category}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: "10px", color: "#7187A5" }}>
-                    Scope: {s.geographicalScope} • Update: {s.updateFrequency}
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "4px" }}>
-                    <span
-                      style={{
-                        fontSize: "9px",
-                        color: s.accessRequirement === "PUBLIC_FREE" ? "#00E6A8" : "#FFAB00",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {s.accessRequirement === "PUBLIC_FREE" ? "● OPEN FREE" : "▲ SUBSCRIPTION"}
-                    </span>
-
-                    <a
-                      href={s.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        fontSize: "10px",
-                        color: "#1687FF",
-                        textDecoration: "none",
-                        fontWeight: 600,
-                      }}
-                    >
-                      Open Provider ↗
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </UltronPanel>
-      )}
-
-      {/* 4. SELF-HOST & ARCHITECTURE TAB */}
-      {activeTab === "selfhost" && (
-        <UltronPanel title="SELF-HOSTED DEPLOYMENT & AGPL-3.0 GOVERNANCE" subtitle="Phase 2 Deployment Architecture">
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "12px", color: "#C8D8EA" }}>
-            <div style={{ background: "rgba(124, 77, 255, 0.08)", border: "1px solid rgba(124, 77, 255, 0.3)", borderRadius: "6px", padding: "12px" }}>
-              <div style={{ fontWeight: 700, color: "#7C4DFF", marginBottom: "4px" }}>
-                AGPL-3.0-Only Licensing Compliance Guarantee:
-              </div>
-              <div>
-                The World Monitor codebase is licensed under <strong>GNU Affero General Public License v3.0</strong>.
-                To preserve ULTRON's sovereign proprietary application architecture:
-              </div>
-              <ul style={{ paddingLeft: "18px", marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
-                <li>World Monitor source code is <strong>never vendored or compiled</strong> into ULTRON binaries.</li>
-                <li>All interactions occur strictly across network boundaries over documented REST and MCP APIs.</li>
-                <li>Self-hosted deployments must run as isolated containerized microservices in their own network namespace.</li>
-              </ul>
-            </div>
-
-            <div style={{ background: "rgba(6, 19, 41, 0.8)", border: "1px solid rgba(113, 135, 165, 0.2)", borderRadius: "6px", padding: "12px" }}>
-              <div style={{ fontWeight: 700, color: "#EAF4FF", marginBottom: "6px" }}>
-                Optional Docker Standalone Deployment:
-              </div>
-              <pre
-                style={{
-                  background: "#020817",
-                  padding: "10px",
-                  borderRadius: "4px",
-                  fontSize: "11px",
-                  color: "#00D9FF",
-                  overflowX: "auto",
+                  fontSize: "10px",
+                  borderRadius: "var(--radius-sm)",
+                  background: mobileViewTab === "map" ? "var(--ultron-blue)" : "transparent",
+                  color: "var(--ultron-text-primary)",
+                  border: "1px solid var(--ultron-border)",
                 }}
               >
-{`# 1. Clone World Monitor separately
-git clone https://github.com/koala73/worldmonitor.git worldmonitor-svc
-cd worldmonitor-svc
-
-# 2. Build and launch isolated container
-docker build -t worldmonitor:latest .
-docker run -d --name worldmonitor-node -p 8080:8080 worldmonitor:latest
-
-# 3. Configure ULTRON environment in .env
-WORLDMONITOR_MCP_URL=http://localhost:8080/mcp
-WORLDMONITOR_API_BASE_URL=http://localhost:8080/api`}
-              </pre>
+                Map
+              </button>
+              <button
+                onClick={() => setMobileViewTab("feed")}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: "10px",
+                  borderRadius: "var(--radius-sm)",
+                  background: mobileViewTab === "feed" ? "var(--ultron-blue)" : "transparent",
+                  color: "var(--ultron-text-primary)",
+                  border: "1px solid var(--ultron-border)",
+                }}
+              >
+                Feed ({filteredEvents.length})
+              </button>
             </div>
           </div>
-        </UltronPanel>
+        }
+      />
+
+      {/* Stale Banner or Error Banner */}
+      {isStale && (
+        <StaleDataBanner
+          cachedAt={lastRefreshedAt}
+          sourceName="USGS / NASA / Maritime Open Telemetry"
+          onRefresh={() => loadData(true)}
+        />
+      )}
+      {error && !isStale && (
+        <ErrorState
+          title="Telemetry Connection Failed"
+          message={error}
+          onRetry={() => loadData(true)}
+        />
+      )}
+
+      {/* 2. CONTROLS BAR: Layers + Time Horizon + Search */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "10px",
+          flexWrap: "wrap",
+          padding: "8px 12px",
+          background: "var(--ultron-bg-panel)",
+          border: "1px solid var(--ultron-border)",
+          borderRadius: "var(--radius-md)",
+        }}
+      >
+        <FilterBar
+          options={filterOptions}
+          activeKey={activeLayerFilter}
+          onChange={setActiveLayerFilter}
+          size="sm"
+        />
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Time Filter */}
+          <select
+            value={timeFilter}
+            onChange={(e: any) => setTimeFilter(e.target.value)}
+            style={{
+              background: "rgba(3, 13, 31, 0.8)",
+              border: "1px solid var(--ultron-border)",
+              color: "var(--ultron-text-primary)",
+              fontSize: "10px",
+              padding: "4px 8px",
+              borderRadius: "var(--radius-sm)",
+              outline: "none",
+            }}
+          >
+            <option value="latest">Latest Horizon (&lt;6h)</option>
+            <option value="24h">Past 24 Hours</option>
+            <option value="7d">Past 7 Days</option>
+            <option value="all">All Available</option>
+          </select>
+
+          {/* Search */}
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Filter location or event..."
+            width="200px"
+          />
+        </div>
+      </div>
+
+      {/* 3. MAIN WORKSPACE VIEWPORT (Desktop Split: Map Left/Center + Feed Right) */}
+      <div
+        style={{
+          display: "flex",
+          flex: 1,
+          gap: "10px",
+          minHeight: 0,
+          overflow: "hidden",
+        }}
+      >
+        {/* Left/Center: NATIVE INTERACTIVE MAP SURFACE */}
+        <div
+          style={{
+            flex: "1 1 65%",
+            display: mobileViewTab === "feed" ? "none" : "flex",
+            flexDirection: "column",
+            background: "var(--ultron-bg-panel)",
+            border: "1px solid var(--ultron-border)",
+            borderRadius: "var(--radius-lg)",
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <GlobalIntelligenceGlobe
+            selectedLocation={selectedLocation}
+            onSelectLocation={(loc) => setSelectedLocation(loc)}
+            onInvestigateLocation={(loc) => {
+              const prompt = `Investigate geospatial anomaly at Sector [${loc.latitude.toFixed(2)}°, ${loc.longitude.toFixed(2)}°] (${loc.city || "Coordinates"}).`;
+              onDispatchMission?.(prompt);
+            }}
+          />
+        </div>
+
+        {/* Right: SYNCHRONIZED EVENT FEED PANEL */}
+        <div
+          style={{
+            flex: "1 1 35%",
+            maxWidth: "460px",
+            minWidth: "320px",
+            display: mobileViewTab === "map" ? "flex" : "flex",
+            flexDirection: "column",
+            background: "var(--ultron-bg-panel)",
+            border: "1px solid var(--ultron-border)",
+            borderRadius: "var(--radius-lg)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "10px 14px",
+              borderBottom: "1px solid var(--ultron-border)",
+              background: "var(--ultron-bg-elevated)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <SectionHeader
+              title="SYNCHRONIZED FEED"
+              count={filteredEvents.length}
+              style={{ borderBottom: "none", marginBottom: 0, padding: 0 }}
+            />
+            <span style={{ fontSize: "10px", color: "var(--ultron-text-muted)" }}>
+              Click to FlyTo
+            </span>
+          </div>
+
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: "10px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+            }}
+          >
+            {isLoading && events.length === 0 ? (
+              <LoadingState message="Connecting multi-domain intelligence feeds..." />
+            ) : filteredEvents.length === 0 ? (
+              <EmptyState
+                title="No Events Found"
+                description={`No real-world events detected matching active layer "${activeLayerFilter}" in time frame.`}
+              />
+            ) : (
+              filteredEvents.map((evt) => {
+                const isSelected = selectedEvent?.id === evt.id;
+                return (
+                  <div
+                    key={evt.id}
+                    onClick={() => handleSelectEvent(evt)}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: "var(--radius-md)",
+                      background: isSelected
+                        ? "linear-gradient(90deg, rgba(22, 135, 255, 0.25) 0%, rgba(11, 42, 80, 0.45) 100%)"
+                        : "rgba(6, 19, 41, 0.7)",
+                      border: isSelected
+                        ? "1px solid var(--ultron-primary)"
+                        : "1px solid rgba(11, 42, 80, 0.6)",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.background = "var(--ultron-bg-hover)";
+                        e.currentTarget.style.borderColor = "rgba(0, 217, 255, 0.3)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.background = "rgba(6, 19, 41, 0.7)";
+                        e.currentTarget.style.borderColor = "rgba(11, 42, 80, 0.6)";
+                      }
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "6px" }}>
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: isSelected ? "var(--ultron-text-primary)" : "var(--ultron-text-secondary)",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {evt.title}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          padding: "1px 5px",
+                          borderRadius: "var(--radius-xs)",
+                          background: "rgba(0, 217, 255, 0.12)",
+                          color: "var(--ultron-primary)",
+                          border: "1px solid rgba(0, 217, 255, 0.25)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {evt.category}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: "11px", color: "var(--ultron-text-muted)", lineHeight: 1.3, marginTop: "2px" }}>
+                      {evt.summary.slice(0, 120)}...
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: "10px",
+                        color: "var(--ultron-text-muted)",
+                        marginTop: "4px",
+                      }}
+                    >
+                      <span>
+                        📍 [{evt.latitude.toFixed(2)}°, {evt.longitude.toFixed(2)}°]
+                      </span>
+                      <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                        {new Date(evt.eventTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: "9px", color: "var(--ultron-text-muted)", opacity: 0.8 }}>
+                      Source: {evt.sourceName}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 4. EVENT DETAIL SIDE DRAWER (Phase 4.D) */}
+      {selectedEvent && (
+        <Drawer
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          title={selectedEvent.title}
+          subtitle={`Category: ${selectedEvent.category} • Location: [${selectedEvent.latitude.toFixed(2)}°, ${selectedEvent.longitude.toFixed(2)}°]`}
+          badge={
+            <span
+              style={{
+                fontSize: "9px",
+                fontWeight: 700,
+                padding: "2px 6px",
+                borderRadius: "var(--radius-xs)",
+                background:
+                  selectedEvent.severity === "CRITICAL"
+                    ? "rgba(255, 77, 103, 0.2)"
+                    : selectedEvent.severity === "HIGH"
+                    ? "rgba(255, 176, 32, 0.2)"
+                    : "rgba(0, 217, 255, 0.2)",
+                color:
+                  selectedEvent.severity === "CRITICAL"
+                    ? "var(--ultron-error)"
+                    : selectedEvent.severity === "HIGH"
+                    ? "var(--ultron-warning)"
+                    : "var(--ultron-primary)",
+              }}
+            >
+              {selectedEvent.severity || "MEDIUM"} PRIORITY
+            </span>
+          }
+          width="440px"
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {/* Event Summary */}
+            <div
+              style={{
+                background: "var(--ultron-bg-main)",
+                border: "1px solid var(--ultron-border)",
+                borderRadius: "var(--radius-md)",
+                padding: "12px",
+                fontSize: "12px",
+                color: "var(--ultron-text-secondary)",
+                lineHeight: 1.5,
+              }}
+            >
+              {selectedEvent.summary}
+            </div>
+
+            {/* Source Attribution Box */}
+            <SourceAttribution
+              sourceName={selectedEvent.sourceName}
+              sourceUrl={selectedEvent.sourceUrl}
+              verified={selectedEvent.verificationStatus === "VERIFIED"}
+              publishedAt={new Date(selectedEvent.publishedAt).toLocaleTimeString()}
+              geographicalScope={selectedEvent.geographicalScope}
+            />
+
+            {/* Telemetry Matrix */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "8px",
+                fontSize: "11px",
+              }}
+            >
+              <div
+                style={{
+                  background: "var(--ultron-bg-elevated)",
+                  padding: "8px 10px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--ultron-border)",
+                }}
+              >
+                <div style={{ color: "var(--ultron-text-muted)", fontSize: "10px" }}>EVENT TIME</div>
+                <div style={{ color: "var(--ultron-text-primary)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  {new Date(selectedEvent.eventTime).toLocaleString()}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: "var(--ultron-bg-elevated)",
+                  padding: "8px 10px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "1px solid var(--ultron-border)",
+                }}
+              >
+                <div style={{ color: "var(--ultron-text-muted)", fontSize: "10px" }}>COORDINATES</div>
+                <div style={{ color: "var(--ultron-primary)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  {selectedEvent.latitude.toFixed(4)}°, {selectedEvent.longitude.toFixed(4)}°
+                </div>
+              </div>
+            </div>
+
+            {/* INVESTIGATION CTA (Phase 4.G) */}
+            <div
+              style={{
+                marginTop: "10px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                padding: "12px",
+                background: "rgba(22, 135, 255, 0.08)",
+                border: "1px solid rgba(0, 217, 255, 0.3)",
+                borderRadius: "var(--radius-md)",
+              }}
+            >
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--ultron-primary)" }}>
+                AUTONOMOUS MULTI-AGENT INVESTIGATION
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--ultron-text-secondary)", lineHeight: 1.4 }}>
+                Dispatch a real mission through ULTRON's DAG engine. Agents will validate source corroboration, separate reported facts from inference, and commit findings to long-term memory.
+              </div>
+
+              <UltronButton
+                variant="primary"
+                size="md"
+                onClick={() => handleInvestigateEvent(selectedEvent)}
+              >
+                Investigate with ULTRON ↗
+              </UltronButton>
+            </div>
+          </div>
+        </Drawer>
       )}
     </div>
   );

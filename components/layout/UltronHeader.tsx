@@ -14,14 +14,22 @@ export interface UltronHeaderProps {
   systemStatus?: "online" | "degraded" | "offline";
   operatorName?: string;
   operatorRole?: string;
+  activeWorkspaceTitle?: string;
   onOpenSystemHealth?: () => void;
+  onOpenMobileNav?: () => void;
+  onToggleSidebar?: () => void;
+  isSidebarExpanded?: boolean;
 }
 
 export default function UltronHeader({
   systemStatus = "online",
   operatorName = "GAURAV",
   operatorRole = "PRIME USER",
+  activeWorkspaceTitle = "COMMAND CENTER",
   onOpenSystemHealth,
+  onOpenMobileNav,
+  onToggleSidebar,
+  isSidebarExpanded = false,
 }: UltronHeaderProps) {
   const [time, setTime] = useState(new Date());
   const [scanStatus, setScanStatus] = useState<BackgroundScanStatus | null>(null);
@@ -106,12 +114,36 @@ export default function UltronHeader({
         top: 0,
       }}
     >
-      {/* LEFT: ULTRON Logo + Title */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      {/* LEFT: ULTRON Logo + Title + Active Workspace */}
+      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        {/* Mobile Nav Toggle */}
+        <button
+          onClick={onOpenMobileNav}
+          aria-label="Open Navigation Menu"
+          className="ultron-mobile-toggle"
+          style={{
+            background: "rgba(11, 42, 80, 0.4)",
+            border: "1px solid var(--ultron-border)",
+            color: "var(--ultron-text-primary)",
+            cursor: "pointer",
+            padding: "6px",
+            borderRadius: "var(--radius-sm)",
+            display: "none",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+
         <div
           style={{
-            width: "36px",
-            height: "36px",
+            width: "34px",
+            height: "34px",
             borderRadius: "50%",
             background: "radial-gradient(circle at 30% 30%, #00D9FF 0%, #08172D 70%, #020817 100%)",
             boxShadow: "0 0 16px rgba(0, 217, 255, 0.45)",
@@ -119,9 +151,10 @@ export default function UltronHeader({
             alignItems: "center",
             justifyContent: "center",
             border: "1px solid rgba(0, 217, 255, 0.6)",
+            flexShrink: 0,
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path
               d="M12 3L21 19H3L12 3Z"
               stroke="#EAF4FF"
@@ -135,23 +168,40 @@ export default function UltronHeader({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: 700,
+                color: "#EAF4FF",
+                letterSpacing: "0.06em",
+                lineHeight: 1.1,
+              }}
+            >
+              ULTRON OS
+            </span>
+            <span
+              style={{
+                fontSize: "9px",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                padding: "1px 6px",
+                borderRadius: "var(--radius-xs)",
+                background: "rgba(0, 217, 255, 0.12)",
+                color: "var(--ultron-primary)",
+                border: "1px solid rgba(0, 217, 255, 0.3)",
+                textTransform: "uppercase",
+              }}
+            >
+              {activeWorkspaceTitle}
+            </span>
+          </div>
           <span
             style={{
-              fontSize: "15px",
-              fontWeight: 700,
-              color: "#EAF4FF",
-              letterSpacing: "0.06em",
-              lineHeight: 1.1,
-            }}
-          >
-            ULTRON OS
-          </span>
-          <span
-            style={{
-              fontSize: "9px",
+              fontSize: "8.5px",
               fontWeight: 600,
-              color: "#00D9FF",
-              letterSpacing: "0.14em",
+              color: "#7187A5",
+              letterSpacing: "0.1em",
               lineHeight: 1.2,
               marginTop: "2px",
             }}

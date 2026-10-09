@@ -117,7 +117,43 @@ export default function UltronEarth({
       const markers: IntelligenceMarker[] = [];
 
       try {
-        // 1. Fetch top news with real geographic coordinates
+        // 1. Fetch live events from sovereign intelligence pipeline (USGS, NASA, CISA, Maritime, Missions)
+        try {
+          const intelRes = await fetch("/api/intelligence/events");
+          if (intelRes.ok) {
+            const intelData = await intelRes.json();
+            if (intelData.events && Array.isArray(intelData.events)) {
+              intelData.events.forEach((evt: any) => {
+                if (typeof evt.latitude === "number" && typeof evt.longitude === "number") {
+                  let type: IntelligenceMarkerType = "NEWS";
+                  if (evt.category === "DISASTER" || evt.category === "WEATHER") type = "ENVIRONMENT";
+                  else if (evt.category === "TECH") type = "TECHNOLOGY";
+                  else if (evt.category === "CYBER" || evt.category === "CONFLICT") type = "SECURITY";
+                  else if (evt.category === "MISSIONS") type = "MISSION";
+                  else if (evt.category === "ECONOMIC") type = "BUSINESS";
+
+                  markers.push({
+                    id: `evt-m-${evt.id}`,
+                    latitude: evt.latitude,
+                    longitude: evt.longitude,
+                    altitude: evt.altitude,
+                    type,
+                    title: evt.title,
+                    source: evt.sourceName,
+                    confidence: evt.confidenceScore || 0.95,
+                    timestamp: evt.eventTime ? new Date(evt.eventTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Live",
+                    details: evt.summary,
+                    severity: evt.severity || "MEDIUM",
+                  });
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn("[ULTRON 3D EARTH] Notice loading pipeline markers:", e);
+        }
+
+        // 2. Fetch top news with real geographic coordinates
         const newsRes = await fetch("/api/news?limit=10");
         if (newsRes.ok) {
           const newsData = await newsRes.json();

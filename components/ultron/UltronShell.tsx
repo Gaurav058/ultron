@@ -58,9 +58,25 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
   const initialNavKey =
     (initialModule.toLowerCase().replace("_", "-") as NavItemKey) || "home";
   const [activeNav, setActiveNav] = useState<NavItemKey>(initialNavKey);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState<boolean>(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+
+  const workspaceTitles: Record<NavItemKey, string> = {
+    home: "COMMAND CENTER",
+    missions: "MISSIONS & WORKFLOWS",
+    agents: "AUTONOMOUS AGENTS",
+    brain: "MEMORY & KNOWLEDGE GRAPH",
+    world: "GLOBAL INTELLIGENCE",
+    "world-monitor": "WORLD MONITOR",
+    tools: "FREE TOOLS HUB",
+    system: "SYSTEM HEALTH & DIAGNOSTICS",
+    settings: "SYSTEM CONFIGURATION",
+  };
+  const activeWorkspaceTitle = workspaceTitles[activeNav] || "COMMAND CENTER";
 
   const handleNavSelect = (item: NavItemKey) => {
     setActiveNav(item);
+    setIsMobileNavOpen(false);
     if (typeof window !== "undefined") {
       const routeMap: Record<NavItemKey, string> = {
         home: "/",
@@ -71,6 +87,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         world: "/world",
         "world-monitor": "/world-monitor",
         system: "/system",
+        settings: "/system",
       };
       const path = routeMap[item] || "/";
       if (window.location.pathname !== path) {
@@ -473,7 +490,11 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         systemStatus={systemStatus.api === "online" ? "online" : "degraded"}
         operatorName="GAURAV"
         operatorRole="PRIME USER"
+        activeWorkspaceTitle={activeWorkspaceTitle}
         onOpenSystemHealth={() => setActiveNav("system")}
+        onOpenMobileNav={() => setIsMobileNavOpen(true)}
+        onToggleSidebar={() => setIsSidebarExpanded((prev) => !prev)}
+        isSidebarExpanded={isSidebarExpanded}
       />
 
       {/* 2. MAIN WORKSPACE */}
@@ -490,6 +511,10 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
         <IconNavRail
           activeItem={activeNav}
           onSelect={handleNavSelect}
+          isExpanded={isSidebarExpanded}
+          onToggleExpanded={() => setIsSidebarExpanded((prev) => !prev)}
+          isMobileOpen={isMobileNavOpen}
+          onCloseMobile={() => setIsMobileNavOpen(false)}
         />
 
         {/* View Switch: HOME (Primary Command Center) */}
@@ -631,7 +656,7 @@ export default function UltronShell({ initialModule = "CORE" }: UltronShellProps
                 onDispatchMission={(prompt) => handleCommandSubmit(prompt)}
               />
             )}
-            {activeNav === "system" && <SystemModule />}
+            {(activeNav === "system" || activeNav === "settings") && <SystemModule />}
           </div>
         )}
       </div>

@@ -8,10 +8,14 @@ const routes = [
   "/agents",
   "/tools",
   "/world",
+  "/world-monitor",
   "/system",
-  "/ui-reference",
-  "/ultron-core-art.png",
-  "/ultron_reference.png"
+  "/api/health",
+  "/api/news",
+  "/api/intelligence/events",
+  "/api/intelligence/layers",
+  "/api/intelligence/status",
+  "/ui-reference"
 ];
 
 async function checkRoute(path) {

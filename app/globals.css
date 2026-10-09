@@ -12,24 +12,55 @@ body {
 }
 
 :root {
-  /* Exact ULTRON OS Design Tokens (Directive Section 2) */
-  --ultron-bg: #020817;
+  /* Canonical ULTRON OS Design Tokens (Phase 2 Directive) */
+  --ultron-bg-main: #020817;
   --ultron-bg-secondary: #030D1F;
-  --ultron-panel: rgba(6, 19, 41, 0.86);
-  --ultron-panel-solid: #061329;
-  --ultron-panel-2: #08172D;
-  --ultron-panel-hover: #0B1D38;
+  --ultron-bg-panel: #061329;
+  --ultron-bg-elevated: #08172D;
+  --ultron-bg-hover: #0B1D38;
   --ultron-border: #0B2A50;
-  --ultron-border-bright: #123F70;
-  --ultron-cyan: #00D9FF;
+  --ultron-border-strong: #123F70;
+  --ultron-primary: #00D9FF;
   --ultron-blue: #1687FF;
   --ultron-purple: #7C4DFF;
-  --ultron-green: #00E6A8;
-  --ultron-amber: #FFB020;
-  --ultron-red: #FF4D67;
-  --ultron-white: #EAF4FF;
-  --ultron-text: #C8D8EA;
-  --ultron-muted: #7187A5;
+  --ultron-success: #00E6A8;
+  --ultron-warning: #FFB020;
+  --ultron-error: #FF4D67;
+  --ultron-text-primary: #EAF4FF;
+  --ultron-text-secondary: #C8D8EA;
+  --ultron-text-muted: #7187A5;
+
+  /* Spacing Scale (4px-based) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Radii Scale */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* Backward Compatibility Aliases */
+  --ultron-bg: var(--ultron-bg-main);
+  --ultron-panel: rgba(6, 19, 41, 0.86);
+  --ultron-panel-solid: var(--ultron-bg-panel);
+  --ultron-panel-2: var(--ultron-bg-elevated);
+  --ultron-panel-hover: var(--ultron-bg-hover);
+  --ultron-border-bright: var(--ultron-border-strong);
+  --ultron-cyan: var(--ultron-primary);
+  --ultron-green: var(--ultron-success);
+  --ultron-amber: var(--ultron-warning);
+  --ultron-red: var(--ultron-error);
+  --ultron-white: var(--ultron-text-primary);
+  --ultron-text: var(--ultron-text-secondary);
+  --ultron-muted: var(--ultron-text-muted);
   --ultron-dim: #435873;
 
   --ultron-glow-cyan: rgba(0, 217, 255, 0.20);
@@ -2098,6 +2129,12 @@ button {
   .telemetry-grid {
     grid-template-columns: 1fr !important;
     height: auto !important;
+  }
+  .ultron-mobile-toggle {
+    display: inline-flex !important;
+  }
+  .ultron-desktop-nav {
+    display: none !important;
   }
 }
 
